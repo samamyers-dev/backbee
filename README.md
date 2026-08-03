@@ -112,10 +112,16 @@ import/export, per-episode speed override.
 
 ## Getting an APK onto a phone
 
-`.github/workflows/android.yml` builds a debug APK on every push and uploads it
-as the `backbee-debug-apk` artifact. Open the run in the Actions tab, download
-the artifact, and sideload the APK (Settings → Apps → Special access → Install
-unknown apps, for whichever browser or file manager you used).
+**[Download the latest debug build](https://github.com/samamyers-dev/backbee/releases/download/debug-latest/backbee-debug.apk)**
+
+Open that link on the phone and tap it. Android will ask you to allow "Install
+unknown apps" for whichever browser you used, then install. No sign-in, no zip,
+no file manager.
+
+CI republishes that same URL on every green build, so it is always the newest
+passing APK. Builds that compile but fail their tests do not reach it - those
+are still available as the `backbee-debug-apk` artifact on the run itself,
+which needs a GitHub sign-in and arrives as a zip.
 
 Locally, with Android Studio or a configured SDK:
 

@@ -110,6 +110,54 @@ jobs:
           git commit -q -m "Screens rendered from ${GITHUB_SHA::7}" || exit 0
           git push -f origin screenshots
 
+      # A stable, sign-in-free download for the phone. Actions artifacts always
+      # require a GitHub login and arrive as a zip, which Android cannot open
+      # without a third-party file manager; a release asset is a direct tap.
+      #
+      # Only on a fully green build. The artifact above already covers "it
+      # compiled" - a release should mean the tests passed too.
+      - name: Publish debug APK to the rolling release
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk=$(ls app/build/outputs/apk/debug/*.apk | head -1)
+          cp "$apk" backbee-debug.apk
+          size=$(du -h backbee-debug.apk | cut -f1)
+          dl="https://github.com/${GITHUB_REPOSITORY}/releases/download/debug-latest/backbee-debug.apk"
+
+          # Notes are written to a file rather than a heredoc: this run block is
+          # indented by YAML, and an indented heredoc terminator is not
+          # recognised by bash.
+          {
+            printf 'Rolling debug build, replaced on every green CI run.\n\n'
+            printf '**[Download backbee-debug.apk](%s)** — %s\n\n' "$dl" "$size"
+            printf '| | |\n|---|---|\n'
+            printf '| Commit | `%s` |\n' "${GITHUB_SHA:0:7}"
+            printf '| Branch | `%s` |\n' "${GITHUB_REF_NAME}"
+            printf '| Built | %s |\n' "$(date -u '+%Y-%m-%d %H:%M UTC')"
+            printf '| App ID | `dev.backbee.debug` |\n'
+            printf '| Requires | Android 8.0+ |\n\n'
+            printf 'Tap the link on the phone. Android will ask you to allow\n'
+            printf '"Install unknown apps" for whichever browser you used, then install.\n\n'
+            printf 'Signed with the throwaway debug key and using a `.debug` application\n'
+            printf 'id, so it installs alongside anything else and cannot later be\n'
+            printf 'upgraded in place to a release build.\n'
+          } > release-notes.md
+
+          # One stable tag, updated in place, so the download URL never changes.
+          if gh release view debug-latest >/dev/null 2>&1; then
+            gh release edit debug-latest --notes-file release-notes.md
+          else
+            gh release create debug-latest \
+              --prerelease \
+              --title "backbee · latest debug build" \
+              --notes-file release-notes.md
+          fi
+
+          gh release upload debug-latest backbee-debug.apk --clobber
+          echo "Published $dl"
+
       - name: Upload test and lint reports
         if: always()
         uses: actions/upload-artifact@v4
