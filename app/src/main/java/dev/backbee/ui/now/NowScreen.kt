@@ -204,22 +204,22 @@ private fun SpineNow(
             )
         }
 
-        // Playing off the bookmark is allowed, but it must never be silent: the
-        // bookmark has not moved, and from here auto-advance walks forward from
-        // wherever the player is, not from where the bookmark sits.
+        // Playing out of sequence is allowed, but it must never be silent: your
+        // place has not moved, and from here auto-advance walks forward from
+        // wherever the player is, not from where you left off.
         if (state.isDetour) {
-            val bookmark = state.resumeTarget
+            val leftOff = state.resumeTarget
             Spacer(Modifier.height(Dimens.space5))
             Readout(
                 lines = listOf(
-                    "PLAYING OFF THE BOOKMARK",
-                    "BOOKMARK HOLDS AT EP ${bookmark?.episodeNumber ?: ((bookmark?.orderIndex ?: 0) + 1)}",
+                    "PLAYING OUT OF SEQUENCE",
+                    "YOUR PLACE IS STILL EP ${leftOff?.episodeNumber ?: ((leftOff?.orderIndex ?: 0) + 1)}",
                 ),
                 tone = colors.onInverseAlert,
             )
             Spacer(Modifier.height(Dimens.space2))
-            BrutalOutlineButton(onClick = { bookmark?.let { player.playEpisode(it.id) } }) {
-                Mono("← BACK TO THE BOOKMARK", style = BackbeeType.monoSmall, color = colors.textPrimary)
+            BrutalOutlineButton(onClick = { leftOff?.let { player.playEpisode(it.id) } }) {
+                Mono("← BACK TO WHERE YOU LEFT OFF", style = BackbeeType.monoSmall, color = colors.textPrimary)
             }
         }
 

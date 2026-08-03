@@ -26,9 +26,12 @@ import kotlinx.coroutines.launch
 data class NowUiState(
     val loading: Boolean = true,
     val show: ShowEntity? = null,
-    /** The bookmark: the earliest episode not yet finished. */
+    /**
+     * Where you left off: the earliest episode not yet finished. Derived, never
+     * placed by hand - finishing an episode advances it on its own.
+     */
     val resumeTarget: EpisodeRow? = null,
-    /** Whatever the player actually has loaded, which need not be the bookmark. */
+    /** Whatever the player actually has loaded, which need not be that episode. */
     val nowPlaying: EpisodeRow? = null,
     val progress: ArchiveProgress? = null,
     val upNext: List<EpisodeRow> = emptyList(),
@@ -50,9 +53,9 @@ data class NowUiState(
     val current: EpisodeRow? get() = nowPlaying ?: resumeTarget
 
     /**
-     * The player is somewhere other than the bookmark. Worth saying out loud:
-     * the bookmark has not moved, and auto-advance will carry on from here, not
-     * from there.
+     * The player is somewhere other than where you left off. Worth saying out
+     * loud: your place has not moved, and auto-advance will carry on from here,
+     * not from there.
      */
     val isDetour: Boolean
         get() = nowPlaying != null && resumeTarget != null && nowPlaying.id != resumeTarget.id
@@ -93,12 +96,12 @@ class NowViewModel(
             else playback.observeRow(episodeId).map { row -> row?.takeIf { it.showId == show.id } }
         }
 
-    /** Whatever Now is currently about, playing or bookmarked. */
-    private val current = combine(nowPlaying, resumeTarget) { playing, bookmark -> playing ?: bookmark }
+    /** Whatever Now is currently about: playing, or else where you left off. */
+    private val current = combine(nowPlaying, resumeTarget) { playing, leftOff -> playing ?: leftOff }
 
     private val currentOrderIndex = current.map { it?.orderIndex ?: -1 }.distinctUntilChanged()
 
-    // Up next follows the current episode rather than the bookmark, because it
+    // Up next follows the current episode rather than your place, because it
     // is a prediction of what auto-advance will do, and auto-advance continues
     // from wherever the player actually is.
     private val upNext = combine(activeShow, currentOrderIndex) { show, index -> show to index }
@@ -173,7 +176,8 @@ class NowViewModel(
      *
      * The Activity releases its controller on every stop, which republishes an
      * empty state. Treating that as "nothing is loaded" would drop this screen
-     * back to the bookmark every time the app is backgrounded, so a disconnect
+     * back to where you left off every time the app is backgrounded, so a
+     * disconnect
      * keeps the last id instead of clearing it.
      */
     private fun playerEpisodeId(): Flow<Long?> = player.state

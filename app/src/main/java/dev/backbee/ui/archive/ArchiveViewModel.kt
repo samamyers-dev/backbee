@@ -26,7 +26,11 @@ data class ArchiveUiState(
     val years: List<YearMarker> = emptyList(),
     val query: String = "",
     val searching: Boolean = false,
-    /** Where the bookmark sits, so the list can open there. */
+    /**
+     * List position of the earliest unfinished episode, so the list can open
+     * there. Null while searching: the index would be into the filtered rows,
+     * and jumping to "the first unplayed search hit" is not the same place.
+     */
     val resumeIndex: Int? = null,
     val totalEpisodes: Int = 0,
     val playedCount: Int = 0,
@@ -70,7 +74,8 @@ class ArchiveViewModel(private val container: AppContainer) : ViewModel() {
                 years = if (searching) emptyList() else yearMarkers(rows),
                 query = q,
                 searching = searching,
-                resumeIndex = rows.indexOfFirst { !it.isPlayed }.takeIf { it >= 0 },
+                resumeIndex = if (searching) null
+                else rows.indexOfFirst { !it.isPlayed }.takeIf { it >= 0 },
                 // Counters always describe the whole archive, never the current
                 // filter - "PLAYED 246" means 246 of the show, not of the search.
                 totalEpisodes = all.size,

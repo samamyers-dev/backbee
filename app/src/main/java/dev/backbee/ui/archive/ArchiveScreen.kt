@@ -69,8 +69,8 @@ fun ArchiveScreen(
     var jumpText by remember { mutableStateOf("") }
     var landed by remember { mutableStateOf(false) }
 
-    // Open at the bookmark, not at episode one. After 300 episodes the top of
-    // the list is not where anybody wants to land.
+    // Open where you left off, not at episode one. After 300 episodes the top
+    // of the list is not where anybody wants to land.
     LaunchedEffect(state.resumeIndex, state.rows.size) {
         val index = state.resumeIndex
         if (!landed && index != null && state.rows.isNotEmpty()) {
@@ -206,7 +206,7 @@ fun ArchiveScreen(
                 onClick = { scope.launch { listState.animateScrollToItem(index) } },
                 modifier = Modifier.fillMaxWidth().padding(Dimens.space3),
             ) {
-                Label("Jump to the bookmark", color = colors.textPrimary)
+                Label("Jump to where you left off", color = colors.textPrimary)
             }
         }
     }
