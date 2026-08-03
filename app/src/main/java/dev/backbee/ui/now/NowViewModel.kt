@@ -156,12 +156,8 @@ class NowViewModel(
         container.workScheduler.refreshNow()
     }
 
-    private data class Quad<A, B, C, D>(val a: A, val b: B, val c: C, val d: D) {
-        operator fun component1() = a
-        operator fun component2() = b
-        operator fun component3() = c
-        operator fun component4() = d
-    }
+    /** Four flows exceed combine's typed arities, so they travel as one value. */
+    private data class Quad<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)
 
     companion object {
         private const val UP_NEXT_COUNT = 3

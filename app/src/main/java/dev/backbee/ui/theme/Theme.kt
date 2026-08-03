@@ -2,6 +2,7 @@ package dev.backbee.ui.theme
 
 import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -12,7 +13,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -199,6 +199,12 @@ object BackbeeType {
     )
 }
 
+/**
+ * Zero radius, expressed as a CornerBasedShape because that is what Material's
+ * Shapes slots are typed as - RectangleShape is a plain Shape and will not fit.
+ */
+private val SquareCorners = RoundedCornerShape(0.dp)
+
 // -- Entry point ------------------------------------------------------------
 
 @Composable
@@ -275,11 +281,11 @@ fun BackbeeTheme(
             // of the system, so it is enforced at the theme rather than left to
             // each component to remember.
             shapes = androidx.compose.material3.Shapes(
-                extraSmall = RectangleShape,
-                small = RectangleShape,
-                medium = RectangleShape,
-                large = RectangleShape,
-                extraLarge = RectangleShape,
+                extraSmall = SquareCorners,
+                small = SquareCorners,
+                medium = SquareCorners,
+                large = SquareCorners,
+                extraLarge = SquareCorners,
             ),
             content = content,
         )
