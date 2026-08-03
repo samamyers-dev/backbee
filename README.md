@@ -41,8 +41,8 @@ Open in Android Studio and run, or:
 `:core` and `:phase0` are plain JVM modules and build anywhere a JDK 17+ exists:
 
 ```bash
-gradle :core:test          # 54 tests, no Android SDK required
-gradle :phase0:installDist
+./gradlew :core:test          # 54 tests, no Android SDK required
+./gradlew :phase0:installDist
 ```
 
 `settings.gradle.kts` only includes `:app` when it can find an Android SDK, so
@@ -109,6 +109,23 @@ trimming, chapters, cross-show playlists, new-episode notifications, video.
 
 v1.5 candidates: loudness normalisation, chapters, sleep timer, OPML
 import/export, per-episode speed override.
+
+## Getting an APK onto a phone
+
+`.github/workflows/android.yml` builds a debug APK on every push and uploads it
+as the `backbee-debug-apk` artifact. Open the run in the Actions tab, download
+the artifact, and sideload the APK (Settings → Apps → Special access → Install
+unknown apps, for whichever browser or file manager you used).
+
+Locally, with Android Studio or a configured SDK:
+
+```bash
+./gradlew :app:assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+The debug build uses the `dev.backbee.debug` application id, so it installs
+alongside a release build rather than replacing it.
 
 ## Test status
 
