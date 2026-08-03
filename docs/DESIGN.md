@@ -151,6 +151,26 @@ Playing off the bookmark never happens silently: a readout states that the
 bookmark has not moved and offers one tap back to it. A completed archive
 yields to the player, so a re-listen is not replaced by the recap.
 
+### 08 · Bulk marking
+
+On the episode screen only — it is the one place with an anchor to mark
+relative to. `← ALL BEFORE` / `ALL AFTER →` count the range first and show what
+is in it (`312 EPISODES BEFORE THIS ONE · 246 PLAYED · 66 UNPLAYED`) before
+anything is written. The anchor episode itself is never included; it has its
+own MARK PLAYED button.
+
+Reversible in two senses. The inverse operation is always offered alongside
+(MARK PLAYED / MARK UNPLAYED on the same range), and the applied change keeps
+the exact prior state of every row it touched, so UNDO restores saved positions
+and `played_at` timestamps rather than merely clearing a flag. Episodes already
+in the target state are not touched at all, which is what stops an undo from
+re-opening an episode that was genuinely finished months ago.
+
+Two implementation notes worth keeping: the id lists are chunked at 400 because
+SQLite's bound-parameter ceiling is 999 and Room does not chunk `IN (:ids)`;
+and the bulk writes use `INSERT OR IGNORE` plus `UPDATE` rather than an upsert,
+to avoid widening the app's dependence on SQLite 3.24.
+
 ## Gaps against the current implementation
 
 Tracked so the retheme covers them rather than only restyling:

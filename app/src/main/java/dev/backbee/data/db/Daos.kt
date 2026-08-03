@@ -238,6 +238,14 @@ interface EpisodeDao {
     @Query("SELECT COUNT(*) FROM episodes WHERE show_id = :showId")
     suspend fun count(showId: Long): Int
 
+    @Query(
+        """
+        SELECT COUNT(*) FROM episodes
+        WHERE show_id = :showId AND order_index BETWEEN :fromOrderIndex AND :toOrderIndex
+        """
+    )
+    suspend fun countInRange(showId: Long, fromOrderIndex: Int, toOrderIndex: Int): Int
+
     /** Position of an episode within the archive, used to seed the queue window. */
     @Query("SELECT order_index FROM episodes WHERE id = :episodeId")
     suspend fun orderIndexOf(episodeId: Long): Int?
@@ -384,6 +392,108 @@ interface PositionDao {
 
     @Query("SELECT COUNT(*) FROM positions p JOIN episodes e ON e.id = p.episode_id WHERE e.show_id = :showId AND p.played = 1")
     suspend fun playedCount(showId: Long): Int
+
+    // -- Bulk marking -------------------------------------------------------
+    //
+    // Every query below takes an explicit id list rather than a range, because
+    // an undo has to put back exactly the rows a bulk mark touched and nothing
+    // else. Callers are responsible for chunking those lists - see
+    // PlaybackRepository.SQL_VARIABLE_LIMIT.
+
+    /**
+     * Ids in an order-index range whose played state differs from the target:
+     * exactly the rows a bulk mark will change, and so exactly the rows an undo
+     * has to restore.
+     */
+    @Query(
+        """
+        SELECT e.id FROM episodes e
+        LEFT JOIN positions p ON p.episode_id = e.id
+        WHERE e.show_id = :showId
+          AND e.order_index BETWEEN :fromOrderIndex AND :toOrderIndex
+          AND COALESCE(p.played, 0) != :played
+        ORDER BY e.order_index ASC
+        """
+    )
+    suspend fun idsNeedingPlayedChange(
+        showId: Long,
+        fromOrderIndex: Int,
+        toOrderIndex: Int,
+        played: Boolean,
+    ): List<Long>
+
+    @Query("SELECT * FROM positions WHERE episode_id IN (:episodeIds)")
+    suspend fun positionsFor(episodeIds: List<Long>): List<PositionEntity>
+
+    @Query("DELETE FROM positions WHERE episode_id IN (:episodeIds)")
+    suspend fun deletePositions(episodeIds: List<Long>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(positions: List<PositionEntity>)
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM episodes e
+        LEFT JOIN positions p ON p.episode_id = e.id
+        WHERE e.show_id = :showId
+          AND e.order_index BETWEEN :fromOrderIndex AND :toOrderIndex
+          AND COALESCE(p.played, 0) = 1
+        """
+    )
+    suspend fun playedCountInRange(showId: Long, fromOrderIndex: Int, toOrderIndex: Int): Int
+
+    /**
+     * Written as INSERT OR IGNORE plus UPDATE rather than as an upsert. The
+     * hot-path writes above use ON CONFLICT DO UPDATE, which needs SQLite 3.24;
+     * there is no reason to add more of that dependency to a path that does not
+     * need the speed.
+     */
+    @Query(
+        """
+        INSERT OR IGNORE INTO positions (episode_id, position_s, updated_at, played, played_at)
+        SELECT e.id, 0, :at, 0, NULL FROM episodes e WHERE e.id IN (:episodeIds)
+        """
+    )
+    suspend fun ensurePositionRows(episodeIds: List<Long>, at: Long)
+
+    /** Played means heard to the end, so the saved position goes to the duration. */
+    @Query(
+        """
+        UPDATE positions SET
+            position_s = COALESCE(
+                (SELECT e.duration_s FROM episodes e WHERE e.id = positions.episode_id),
+                position_s
+            ),
+            updated_at = :at,
+            played = 1,
+            played_at = :at
+        WHERE episode_id IN (:episodeIds)
+        """
+    )
+    suspend fun setPlayedIn(episodeIds: List<Long>, at: Long)
+
+    @Query(
+        """
+        UPDATE positions SET position_s = 0, updated_at = :at, played = 0, played_at = NULL
+        WHERE episode_id IN (:episodeIds)
+        """
+    )
+    suspend fun setUnplayedIn(episodeIds: List<Long>, at: Long)
+
+    @Transaction
+    suspend fun applyPlayedIn(episodeIds: List<Long>, played: Boolean, at: Long) {
+        if (episodeIds.isEmpty()) return
+        ensurePositionRows(episodeIds, at)
+        if (played) setPlayedIn(episodeIds, at) else setUnplayedIn(episodeIds, at)
+    }
+
+    /** Restores a chunk to its exact prior state: absent rows go back to absent. */
+    @Transaction
+    suspend fun restorePositions(episodeIds: List<Long>, previous: List<PositionEntity>) {
+        if (episodeIds.isEmpty()) return
+        deletePositions(episodeIds)
+        if (previous.isNotEmpty()) upsertAll(previous)
+    }
 }
 
 @Dao

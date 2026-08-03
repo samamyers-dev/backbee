@@ -29,6 +29,7 @@ import dev.backbee.ui.components.BrutalOutlineButton
 import dev.backbee.ui.components.Glyph
 import dev.backbee.ui.components.Label
 import dev.backbee.ui.components.Mono
+import dev.backbee.ui.components.Readout
 import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
 import dev.backbee.ui.theme.Shadow
@@ -170,6 +171,18 @@ fun EpisodeDetailScreen(
         BrutalDivider()
         Spacer(Modifier.height(Dimens.space4))
 
+        BulkSection(
+            bulk = state.bulk,
+            onOpen = viewModel::openBulk,
+            onApply = viewModel::applyBulk,
+            onUndo = viewModel::undoBulk,
+            onDismiss = viewModel::dismissBulk,
+        )
+
+        Spacer(Modifier.height(Dimens.space5))
+        BrutalDivider()
+        Spacer(Modifier.height(Dimens.space4))
+
         Label("Note")
         OutlinedTextField(
             value = state.noteDraft,
@@ -201,6 +214,117 @@ fun EpisodeDetailScreen(
         }
 
         Spacer(Modifier.height(Dimens.space16))
+    }
+}
+
+/**
+ * Marking a stretch of the archive played, and taking it back.
+ *
+ * Three steps on purpose. Opening only counts the range; the numbers are shown
+ * before anything is written, because "mark 312 episodes played" is not a thing
+ * to do by accident. After it runs, the exact rows that changed are held so a
+ * single tap puts them back - including the ones that were part-way through,
+ * which is why the undo restores saved positions rather than just clearing the
+ * played flag.
+ */
+@Composable
+private fun BulkSection(
+    bulk: BulkUiState,
+    onOpen: (BulkScope) -> Unit,
+    onApply: (Boolean) -> Unit,
+    onUndo: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val colors = backbeeColors
+
+    bulk.done?.let { done ->
+        Readout(
+            lines = listOf(
+                "${done.count} EPISODES MARKED ${if (done.played) "PLAYED" else "UNPLAYED"}",
+                "UNDO RESTORES THEM EXACTLY, POSITIONS AND ALL",
+            ),
+            tone = colors.onInverseFunctional,
+        )
+        Spacer(Modifier.height(Dimens.space2))
+        Row(horizontalArrangement = Arrangement.spacedBy(Dimens.space2)) {
+            BrutalOutlineButton(
+                onClick = onUndo,
+                enabled = !bulk.working,
+                modifier = Modifier.weight(1f),
+            ) {
+                Mono("UNDO", style = BackbeeType.monoSmall, color = colors.accentAlert)
+            }
+            BrutalOutlineButton(
+                onClick = onDismiss,
+                enabled = !bulk.working,
+                modifier = Modifier.weight(1f),
+            ) {
+                Mono("KEEP", style = BackbeeType.monoSmall, color = colors.textPrimary)
+            }
+        }
+        return
+    }
+
+    Label("The rest of the archive")
+    Spacer(Modifier.height(Dimens.space2))
+
+    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.space2)) {
+        BrutalOutlineButton(
+            onClick = { onOpen(BulkScope.BEFORE) },
+            modifier = Modifier.weight(1f),
+        ) {
+            Mono("← ALL BEFORE", style = BackbeeType.monoSmall, color = colors.textPrimary)
+        }
+        BrutalOutlineButton(
+            onClick = { onOpen(BulkScope.AFTER) },
+            modifier = Modifier.weight(1f),
+        ) {
+            Mono("ALL AFTER →", style = BackbeeType.monoSmall, color = colors.textPrimary)
+        }
+    }
+
+    val scope = bulk.scope ?: return
+    val summary = bulk.summary ?: return
+    val side = if (scope == BulkScope.BEFORE) "BEFORE" else "AFTER"
+
+    Spacer(Modifier.height(Dimens.space3))
+
+    if (summary.isEmpty) {
+        Readout(listOf("NOTHING $side THIS EPISODE"))
+        Spacer(Modifier.height(Dimens.space2))
+        BrutalOutlineButton(onClick = onDismiss) {
+            Mono("CLOSE", style = BackbeeType.monoSmall, color = colors.textPrimary)
+        }
+        return
+    }
+
+    Readout(
+        lines = listOf(
+            "${summary.total} EPISODES $side THIS ONE",
+            "${summary.played} PLAYED · ${summary.unplayed} UNPLAYED",
+            "THIS EPISODE IS NOT INCLUDED",
+        ),
+    )
+    Spacer(Modifier.height(Dimens.space2))
+    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.space2)) {
+        BrutalButton(
+            onClick = { onApply(true) },
+            enabled = !bulk.working && summary.unplayed > 0,
+            modifier = Modifier.weight(1f),
+        ) {
+            Mono("MARK PLAYED", style = BackbeeType.monoSmall, color = colors.onAccentPrimary)
+        }
+        BrutalOutlineButton(
+            onClick = { onApply(false) },
+            enabled = !bulk.working && summary.played > 0,
+            modifier = Modifier.weight(1f),
+        ) {
+            Mono("MARK UNPLAYED", style = BackbeeType.monoSmall, color = colors.textPrimary)
+        }
+    }
+    Spacer(Modifier.height(Dimens.space2))
+    BrutalOutlineButton(onClick = onDismiss, enabled = !bulk.working) {
+        Mono("CANCEL", style = BackbeeType.monoSmall, color = colors.textMuted)
     }
 }
 
