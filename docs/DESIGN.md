@@ -124,6 +124,33 @@ Motion: `fast 120ms`, `standard 300ms`, `cubic-bezier(0.4, 0, 0.2, 1)`.
 
 Lock screen / media notification, Android Auto (800×480), widget 4×2.
 
+### 06 · The persistent bar
+
+Not in the original screens, added after device testing. `NowPlayingBar` sits
+between the NavHost and the tab row, so it is outside every destination and
+survives all navigation. Artwork with a visualiser chip over it, episode number
+(or `BUFFERING…`), title, elapsed and remaining, `−10` and play/pause. Tapping
+the bar returns to Now.
+
+The visualiser is driven by the animation clock, not by the audio signal —
+reading real amplitude requires `RECORD_AUDIO`. It is honest about the only
+thing anyone reads it for: whether the app is playing. Its chip is a fixed dark
+lens in **both** themes rather than `bgInverse`, because the ochre accent is
+4.6:1 on espresso and 1.9:1 on paper; flipping it with the theme is the same
+trap that made the readout text unreadable.
+
+### 07 · Now follows the player, not only the bookmark
+
+Now derives from `nowPlaying ?: resumeTarget`. Playing an episode from the
+middle of the archive makes the screen follow it, and up next, the
+downloaded-ahead count and the `Ep n of N` strip follow the same episode —
+up next is a prediction of what auto-advance will do, and auto-advance
+continues from wherever the player actually is.
+
+Playing off the bookmark never happens silently: a readout states that the
+bookmark has not moved and offers one tap back to it. A completed archive
+yields to the player, so a re-listen is not replaced by the recap.
+
 ## Gaps against the current implementation
 
 Tracked so the retheme covers them rather than only restyling:
@@ -139,6 +166,15 @@ Tracked so the retheme covers them rather than only restyling:
 8. Settings diagnostics readout — needs a flush counter and last-checkpoint
    timestamp to be recorded.
 9. Relative "8 MONTHS AGO" / "PAUSED 3 DAYS AGO" formatting.
+
+Closed after device testing:
+
+10. Now followed the bookmark rather than the player (§07).
+11. `← ARCHIVE` on the episode screen had no `clickable` — `onBack` was
+    declared and never wired.
+12. No persistent playback surface across navigation (§06).
+13. The Now speed key was labelled with the speed and skipped to the next
+    episode; it cycles speed now.
 
 ## Verifying the look without a device
 
