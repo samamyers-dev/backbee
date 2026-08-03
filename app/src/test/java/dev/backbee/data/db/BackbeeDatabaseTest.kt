@@ -1,5 +1,6 @@
 package dev.backbee.data.db
 
+import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
@@ -10,12 +11,17 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * Covers the SQL the app cannot afford to get wrong: the archive projection, the
  * upsert on the position hot path, and the aggregate the Now screen reads.
  */
 @RunWith(RobolectricTestRunner::class)
+// A plain Application, not BackbeeApp: the real one schedules WorkManager jobs
+// from onCreate, and WorkManager has no initializer under Robolectric. These
+// tests are about the SQL, not the app graph.
+@Config(application = Application::class)
 class BackbeeDatabaseTest {
 
     private lateinit var db: BackbeeDatabase
@@ -52,7 +58,9 @@ class BackbeeDatabaseTest {
 
     @After
     fun tearDown() {
-        db.close()
+        // Guarded so a failure in setUp reports its own cause rather than being
+        // masked by an UninitializedPropertyAccessException in teardown.
+        if (::db.isInitialized) db.close()
     }
 
     @Test

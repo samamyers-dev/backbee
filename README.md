@@ -134,10 +134,8 @@ get wrong lives: feed parsing against malformed real-world XML, paged archive
 walking, the Phase 0 verdict rules, smart-resume tiers, progress formatting, and
 download planning including storage-cap eviction.
 
-`:app` — `BackbeeDatabaseTest` covers the SQL that the rest of the app depends
-on. It has **not been executed** in the environment this was built in: Google's
-Maven host and the Android SDK download endpoint are both unreachable from here,
-so nothing in `:app` could be compiled or run. Everything in `:app` should be
-treated as reviewed-but-unverified until it has been through one
-`./gradlew :app:assembleDebug` and `./gradlew :app:testDebugUnitTest` on a
-machine with the SDK.
+`:app` — compiles and assembles on CI; `BackbeeDatabaseTest` covers the SQL the
+rest of the app depends on. Nothing in `:app` can be built in the development
+container used to write it (Google's Maven host and the Android SDK endpoint are
+both unreachable there), so the GitHub Actions build is the authority on whether
+the Android module is sound.

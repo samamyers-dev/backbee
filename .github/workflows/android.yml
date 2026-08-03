@@ -49,21 +49,23 @@ jobs:
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug --console=plain --stacktrace
 
-      - name: App unit tests
-        run: ./gradlew :app:testDebugUnitTest --console=plain --stacktrace
-
-      - name: Lint
-        if: always()
-        run: ./gradlew :app:lintDebug --console=plain || true
-
+      # Published straight after assembling, before the tests. A failing test
+      # should turn the build red, but it should not withhold an APK that
+      # compiled - the artifact is how the app gets onto a phone at all.
       - name: Upload APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: backbee-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: App unit tests
+        run: ./gradlew :app:testDebugUnitTest --console=plain --stacktrace
+
+      - name: Lint
+        if: always()
+        run: ./gradlew :app:lintDebug --console=plain || true
 
       - name: Upload test and lint reports
         if: always()
