@@ -10,6 +10,7 @@ import dev.backbee.data.db.ShowProgress
 import dev.backbee.di.AppContainer
 import dev.backbee.playback.PlayerConnection
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -82,7 +84,7 @@ class NowViewModel(
      */
     private val nowPlaying = combine(
         activeShow,
-        player.state.map { it.episodeId }.distinctUntilChanged(),
+        playerEpisodeId(),
     ) { show, episodeId -> show to episodeId }
         .flatMapLatest { (show, episodeId) ->
             if (show == null || episodeId == null) flowOf(null)
@@ -165,6 +167,20 @@ class NowViewModel(
             },
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NowUiState())
+
+    /**
+     * The loaded episode, held across the gaps in the connection.
+     *
+     * The Activity releases its controller on every stop, which republishes an
+     * empty state. Treating that as "nothing is loaded" would drop this screen
+     * back to the bookmark every time the app is backgrounded, so a disconnect
+     * keeps the last id instead of clearing it.
+     */
+    private fun playerEpisodeId(): Flow<Long?> = player.state
+        .map { it.connected to it.episodeId }
+        .distinctUntilChanged()
+        .scan(null as Long?) { last, (connected, episodeId) -> if (connected) episodeId else last }
+        .distinctUntilChanged()
 
     private suspend fun loadYearMarks(showId: Long): List<Pair<Int, Float>> {
         val total = playback.episodeCount(showId).takeIf { it > 0 } ?: return emptyList()
