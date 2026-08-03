@@ -67,6 +67,12 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            all {
+                // Roborazzi writes rather than compares. There is no committed
+                // baseline to diff against - the point here is to look at the
+                // output, not to gate on pixel equality.
+                it.systemProperty("roborazzi.test.record", "true")
+            }
         }
     }
 }
@@ -121,4 +127,12 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.room.testing)
     testImplementation(libs.androidx.test.ext.junit)
+
+    // Screenshot rendering on the JVM: Robolectric's native graphics mode draws
+    // real Compose output to PNG without an emulator or a system image.
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    debugImplementation(libs.compose.ui.test.manifest)
 }

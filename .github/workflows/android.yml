@@ -12,6 +12,9 @@ concurrency:
   # would kill the push build, and two dead runs look exactly like one slow one.
   cancel-in-progress: false
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -66,6 +69,46 @@ jobs:
       - name: Lint
         if: always()
         run: ./gradlew :app:lintDebug --console=plain || true
+
+      # Rendered screens, published to their own branch. Artifact downloads are
+      # signed blob URLs that are not reachable from every environment, whereas
+      # a branch can simply be fetched - and the images stay reviewable in the
+      # repository rather than expiring in 30 days.
+      - name: Publish screenshots
+        if: always()
+        run: |
+          shopt -s nullglob
+          shots=(app/build/outputs/roborazzi/*.png)
+          if [ ${#shots[@]} -eq 0 ]; then
+            echo "No screenshots produced; nothing to publish."
+            exit 0
+          fi
+          echo "Publishing ${#shots[@]} screenshot(s)."
+
+          tmp=$(mktemp -d)
+          cp "${shots[@]}" "$tmp/"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Orphan branch: screenshots only, no code history, force-pushed each
+          # run so it always reflects the current commit rather than accreting.
+          git checkout --orphan screenshots
+          git rm -rf --cached . >/dev/null 2>&1 || true
+          rm -rf $(git ls-files) 2>/dev/null || true
+          mkdir -p screenshots
+          cp "$tmp"/*.png screenshots/
+          {
+            echo "# Rendered screens"
+            echo
+            echo "Commit: ${GITHUB_SHA}"
+            echo "Run: ${GITHUB_RUN_ID}"
+            echo
+            for f in screenshots/*.png; do echo "- \`$f\`"; done
+          } > README.md
+          git add -A screenshots README.md
+          git commit -q -m "Screens rendered from ${GITHUB_SHA::7}" || exit 0
+          git push -f origin screenshots
 
       - name: Upload test and lint reports
         if: always()

@@ -139,3 +139,34 @@ Tracked so the retheme covers them rather than only restyling:
 8. Settings diagnostics readout — needs a flush counter and last-checkpoint
    timestamp to be recorded.
 9. Relative "8 MONTHS AGO" / "PAUSED 3 DAYS AGO" formatting.
+
+## Verifying the look without a device
+
+`app/src/test/java/dev/backbee/ui/screenshot/ScreenshotTest.kt` renders the
+components to PNG on the JVM using Robolectric's native graphics mode, so the
+design can be inspected without an emulator or a system image.
+
+CI publishes the results to the **`screenshots`** branch (orphan, force-pushed
+each run) rather than as a build artifact, because artifact downloads are signed
+blob URLs that some environments cannot reach, and because a branch keeps the
+images reviewable instead of expiring.
+
+```bash
+git fetch origin screenshots && git checkout origin/screenshots -- screenshots/
+```
+
+## Known limitation: late-arriving out-of-order episodes
+
+`ShowRepository.writeEpisodes` rebuilds `order_index` from publication date only
+while nothing has been played; after that, new episodes are appended. That is
+right for a still-running show, and wrong for the case where *older* episodes
+arrive later - they would land after the newest ones instead of at the start.
+
+It is dormant today: it needs episodes to arrive out of chronological order
+after playback has begun, which in practice means recovering a truncated
+archive mid-show. Worth knowing before that path is built out.
+
+The fix is not difficult and is safe: `positions` is keyed by `episode_id`, not
+by `order_index`, so renumbering loses no position and no played flag. What it
+does change is the *derived* resume pointer, so a full reindex should come with
+an explicit resume pointer on the show row to avoid moving the listener.
