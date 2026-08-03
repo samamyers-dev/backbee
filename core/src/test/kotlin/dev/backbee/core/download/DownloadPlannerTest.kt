@@ -150,6 +150,31 @@ class DownloadPlannerTest {
     }
 
     @Test
+    fun `an episode marked keep is never reclaimed, however long ago it was played`() {
+        val slots = archive(size = 50, playedThrough = 10, downloaded = setOf(3), playedAt = now - 30 * 24 * hour)
+            .map { if (it.episodeId == 3L) it.copy(keepAfterPlaying = true) else it }
+
+        val plan = DownloadPlanner(DownloadConfig(downloadAhead = 2, storageCapBytes = 100L * 1024 * mb))
+            .plan(slots, currentOrderIndex = 10, nowMillis = now)
+
+        assertThat(plan.toDelete).doesNotContain(3L)
+    }
+
+    @Test
+    fun `a kept episode is not evicted even when the cap is under pressure`() {
+        // 20 and 21 are downloaded and far ahead; 21 is marked keep, so the
+        // eviction has to fall on 20 instead.
+        val slots = archive(size = 100, downloaded = setOf(20, 21))
+            .map { if (it.episodeId == 21L) it.copy(keepAfterPlaying = true) else it }
+
+        val plan = DownloadPlanner(DownloadConfig(downloadAhead = 15, storageCapBytes = 150 * mb))
+            .plan(slots, currentOrderIndex = 10, nowMillis = now)
+
+        assertThat(plan.toDelete).doesNotContain(21L)
+        assertThat(plan.toDownload.firstOrNull()).isEqualTo(10L)
+    }
+
+    @Test
     fun `an empty archive plans nothing`() {
         val plan = DownloadPlanner(DownloadConfig()).plan(emptyList(), currentOrderIndex = 0, nowMillis = now)
 

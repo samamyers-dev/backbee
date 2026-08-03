@@ -1,22 +1,25 @@
 package dev.backbee.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.LibraryBooks
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import dev.backbee.di.AppContainer
@@ -27,26 +30,40 @@ import dev.backbee.ui.archive.EpisodeDetailScreen
 import dev.backbee.ui.archive.EpisodeDetailViewModel
 import dev.backbee.ui.completion.CompletionScreen
 import dev.backbee.ui.completion.CompletionViewModel
+import dev.backbee.ui.components.BrutalDivider
+import dev.backbee.ui.components.Mono
+import dev.backbee.ui.downloads.DownloadsScreen
+import dev.backbee.ui.downloads.DownloadsViewModel
 import dev.backbee.ui.now.NowScreen
 import dev.backbee.ui.now.NowViewModel
 import dev.backbee.ui.settings.SettingsScreen
 import dev.backbee.ui.settings.SettingsViewModel
 import dev.backbee.ui.shelf.ShelfScreen
 import dev.backbee.ui.shelf.ShelfViewModel
+import dev.backbee.ui.theme.BackbeeType
+import dev.backbee.ui.theme.Stroke
+import dev.backbee.ui.theme.backbeeColors
 
 private object Routes {
     const val NOW = "now"
     const val ARCHIVE = "archive"
-    const val EPISODE = "episode/{episodeId}"
     const val SHELF = "shelf"
+    const val EPISODE = "episode/{episodeId}"
     const val SETTINGS = "settings"
+    const val DOWNLOADS = "downloads"
     const val COMPLETION = "completion/{showId}"
 
     fun episode(id: Long) = "episode/$id"
     fun completion(showId: Long) = "completion/$showId"
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** The three tabs from the spec. Everything else is reached from inside them. */
+private val TABS = listOf(
+    Routes.NOW to "NOW",
+    Routes.ARCHIVE to "ARCHIVE",
+    Routes.SHELF to "SHELF",
+)
+
 @Composable
 fun BackbeeNavHost(
     container: AppContainer,
@@ -54,106 +71,137 @@ fun BackbeeNavHost(
     modifier: Modifier = Modifier,
 ) {
     val navController = rememberNavController()
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
+    val colors = backbeeColors
 
-    NavHost(
-        navController = navController,
-        startDestination = Routes.NOW,
-        modifier = modifier,
-    ) {
-        composable(Routes.NOW) {
-            val viewModel: NowViewModel = viewModel(
-                factory = viewModelFactory { NowViewModel(container, player) }
-            )
-            Scaffold(
-                topBar = {
-                    TopAppBar(
-                        title = { Text("backbee") },
-                        actions = {
-                            IconButton(onClick = { navController.navigate(Routes.SHELF) }) {
-                                Icon(Icons.Filled.LibraryBooks, contentDescription = "Shelf")
-                            }
-                            IconButton(onClick = { navController.navigate(Routes.SETTINGS) }) {
-                                Icon(Icons.Filled.Settings, contentDescription = "Settings")
-                            }
-                        },
+    Column(modifier.fillMaxSize().background(colors.bgPage)) {
+        Box(Modifier.weight(1f)) {
+            NavHost(
+                navController = navController,
+                startDestination = Routes.NOW,
+                modifier = Modifier.fillMaxSize().statusBarsPadding(),
+            ) {
+                composable(Routes.NOW) {
+                    val vm: NowViewModel = viewModel(factory = viewModelFactory { NowViewModel(container, player) })
+                    NowScreen(
+                        viewModel = vm,
+                        player = player,
+                        onOpenArchive = { navController.navigate(Routes.ARCHIVE) },
+                        onOpenShelf = { navController.navigate(Routes.SHELF) },
+                        onOpenCompletion = { navController.navigate(Routes.completion(it)) },
                     )
-                },
-            ) { padding ->
-                NowScreen(
-                    viewModel = viewModel,
-                    player = player,
-                    onOpenArchive = { navController.navigate(Routes.ARCHIVE) },
-                    onOpenShelf = { navController.navigate(Routes.SHELF) },
-                    onOpenCompletion = { showId -> navController.navigate(Routes.completion(showId)) },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                )
+                }
+
+                composable(Routes.ARCHIVE) {
+                    val vm: ArchiveViewModel = viewModel(factory = viewModelFactory { ArchiveViewModel(container) })
+                    ArchiveScreen(
+                        viewModel = vm,
+                        player = player,
+                        onOpenEpisode = { navController.navigate(Routes.episode(it)) },
+                    )
+                }
+
+                composable(Routes.SHELF) {
+                    val vm: ShelfViewModel = viewModel(factory = viewModelFactory { ShelfViewModel(container) })
+                    ShelfScreen(
+                        viewModel = vm,
+                        onOpenCompletion = { navController.navigate(Routes.completion(it)) },
+                    )
+                }
+
+                composable(
+                    route = Routes.EPISODE,
+                    arguments = listOf(navArgument("episodeId") { type = NavType.LongType }),
+                ) { entry ->
+                    val episodeId = entry.arguments?.getLong("episodeId") ?: return@composable
+                    val vm: EpisodeDetailViewModel =
+                        viewModel(factory = viewModelFactory { EpisodeDetailViewModel(container, episodeId) })
+                    EpisodeDetailScreen(
+                        viewModel = vm,
+                        player = player,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+
+                composable(Routes.SETTINGS) {
+                    val vm: SettingsViewModel = viewModel(factory = viewModelFactory { SettingsViewModel(container) })
+                    SettingsScreen(viewModel = vm)
+                }
+
+                composable(Routes.DOWNLOADS) {
+                    val vm: DownloadsViewModel = viewModel(factory = viewModelFactory { DownloadsViewModel(container) })
+                    DownloadsScreen(viewModel = vm)
+                }
+
+                composable(
+                    route = Routes.COMPLETION,
+                    arguments = listOf(navArgument("showId") { type = NavType.LongType }),
+                ) { entry ->
+                    val showId = entry.arguments?.getLong("showId") ?: return@composable
+                    val vm: CompletionViewModel =
+                        viewModel(factory = viewModelFactory { CompletionViewModel(container, showId) })
+                    CompletionScreen(
+                        viewModel = vm,
+                        onActivatedNextShow = { navController.popBackStack(Routes.NOW, inclusive = false) },
+                    )
+                }
             }
         }
 
-        composable(Routes.ARCHIVE) {
-            val viewModel: ArchiveViewModel = viewModel(
-                factory = viewModelFactory { ArchiveViewModel(container) }
-            )
-            ArchiveScreen(
-                viewModel = viewModel,
-                onBack = { navController.popBackStack() },
-                onOpenEpisode = { id -> navController.navigate(Routes.episode(id)) },
-            )
-        }
-
-        composable(
-            route = Routes.EPISODE,
-            arguments = listOf(navArgument("episodeId") { type = NavType.LongType }),
-        ) { entry ->
-            val episodeId = entry.arguments?.getLong("episodeId") ?: return@composable
-            val viewModel: EpisodeDetailViewModel = viewModel(
-                factory = viewModelFactory { EpisodeDetailViewModel(container, episodeId) }
-            )
-            EpisodeDetailScreen(
-                viewModel = viewModel,
-                player = player,
-                onBack = { navController.popBackStack() },
-            )
-        }
-
-        composable(Routes.SHELF) {
-            val viewModel: ShelfViewModel = viewModel(
-                factory = viewModelFactory { ShelfViewModel(container) }
-            )
-            ShelfScreen(
-                viewModel = viewModel,
-                onBack = { navController.popBackStack() },
-                onOpenCompletion = { showId -> navController.navigate(Routes.completion(showId)) },
-            )
-        }
-
-        composable(Routes.SETTINGS) {
-            val viewModel: SettingsViewModel = viewModel(
-                factory = viewModelFactory { SettingsViewModel(container) }
-            )
-            SettingsScreen(
-                viewModel = viewModel,
-                onBack = { navController.popBackStack() },
-            )
-        }
-
-        composable(
-            route = Routes.COMPLETION,
-            arguments = listOf(navArgument("showId") { type = NavType.LongType }),
-        ) { entry ->
-            val showId = entry.arguments?.getLong("showId") ?: return@composable
-            val viewModel: CompletionViewModel = viewModel(
-                factory = viewModelFactory { CompletionViewModel(container, showId) }
-            )
-            CompletionScreen(
-                viewModel = viewModel,
-                onBack = { navController.popBackStack() },
-                onActivatedNextShow = {
-                    navController.popBackStack(Routes.NOW, inclusive = false)
-                },
-            )
+        BrutalDivider(thickness = Stroke.thick)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(colors.bgPanel)
+                .navigationBarsPadding(),
+        ) {
+            TABS.forEach { (route, label) ->
+                val selected = currentRoute == route
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable {
+                            if (!selected) {
+                                navController.navigate(route) {
+                                    // Tabs are destinations, not a stack: going
+                                    // back from any of them leaves the app.
+                                    popUpTo(Routes.NOW) { inclusive = route == Routes.NOW }
+                                    launchSingleTop = true
+                                }
+                            }
+                        }
+                        .background(if (selected) colors.accentPrimary else colors.bgPanel)
+                        .padding(vertical = 18.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Mono(
+                        text = label,
+                        style = BackbeeType.label,
+                        color = if (selected) colors.onAccentPrimary else colors.textMuted,
+                    )
+                }
+            }
+            // Settings and Downloads are rare surfaces, so they get a narrow
+            // slot rather than a tab of their own.
+            Box(
+                modifier = Modifier
+                    .weight(0.6f)
+                    .clickable { navController.navigate(Routes.DOWNLOADS) { launchSingleTop = true } }
+                    .padding(vertical = 18.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Mono("▼", style = BackbeeType.label, color = backbeeColors.textMuted)
+            }
+            Box(
+                modifier = Modifier
+                    .weight(0.6f)
+                    .clickable { navController.navigate(Routes.SETTINGS) { launchSingleTop = true } }
+                    .padding(vertical = 18.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Mono("⚙", style = BackbeeType.label, color = backbeeColors.textMuted)
+            }
         }
     }
 }

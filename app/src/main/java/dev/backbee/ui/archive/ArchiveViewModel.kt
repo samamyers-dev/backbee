@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 
-/** A year label and the list position it starts at, for the fast-scroll scrubber. */
+/** A year label and the list position it starts at, for the fast-scroll rail. */
 data class YearMarker(val year: Int, val listIndex: Int)
 
 data class ArchiveUiState(
@@ -28,7 +28,15 @@ data class ArchiveUiState(
     val searching: Boolean = false,
     /** Where the bookmark sits, so the list can open there. */
     val resumeIndex: Int? = null,
-)
+    val totalEpisodes: Int = 0,
+    val playedCount: Int = 0,
+    val downloadedCount: Int = 0,
+    val starredCount: Int = 0,
+    /** Episode id -> the band to draw above it, e.g. "2021 · EPISODES 231-286". */
+    private val yearBands: Map<Long, String> = emptyMap(),
+) {
+    fun yearBandFor(episodeId: Long): String? = yearBands[episodeId]
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ArchiveViewModel(private val container: AppContainer) : ViewModel() {
@@ -40,33 +48,46 @@ class ArchiveViewModel(private val container: AppContainer) : ViewModel() {
 
     private val activeShow = container.showRepository.observeActiveShow()
 
-    private val rows = combine(activeShow, _query) { show, query -> show to query }
-        .flatMapLatest { (show, query) ->
+    private val allRows = activeShow.flatMapLatest { show ->
+        if (show == null) flowOf(emptyList()) else playback.observeArchive(show.id)
+    }
+
+    private val visibleRows = combine(activeShow, _query) { show, q -> show to q }
+        .flatMapLatest { (show, q) ->
             when {
                 show == null -> flowOf(emptyList())
-                query.isBlank() -> playback.observeArchive(show.id)
-                else -> playback.search(show.id, query.trim())
+                q.isBlank() -> playback.observeArchive(show.id)
+                else -> playback.search(show.id, q.trim())
             }
         }
 
-    val state: StateFlow<ArchiveUiState> = combine(activeShow, rows, _query) { show, rows, query ->
-        ArchiveUiState(
-            show = show,
-            rows = rows,
-            years = if (query.isBlank()) yearMarkers(rows) else emptyList(),
-            query = query,
-            searching = query.isNotBlank(),
-            resumeIndex = rows.indexOfFirst { !it.isPlayed }.takeIf { it >= 0 },
-        )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ArchiveUiState())
+    val state: StateFlow<ArchiveUiState> =
+        combine(activeShow, allRows, visibleRows, _query) { show, all, rows, q ->
+            val searching = q.isNotBlank()
+            ArchiveUiState(
+                show = show,
+                rows = rows,
+                years = if (searching) emptyList() else yearMarkers(rows),
+                query = q,
+                searching = searching,
+                resumeIndex = rows.indexOfFirst { !it.isPlayed }.takeIf { it >= 0 },
+                // Counters always describe the whole archive, never the current
+                // filter - "PLAYED 246" means 246 of the show, not of the search.
+                totalEpisodes = all.size,
+                playedCount = all.count { it.isPlayed },
+                downloadedCount = all.count { it.isDownloaded },
+                starredCount = all.count { it.isStarred },
+                yearBands = if (searching) emptyMap() else yearBands(rows),
+            )
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ArchiveUiState())
 
     fun setQuery(value: String) {
         _query.value = value
     }
 
     /**
-     * Jump-to-episode-number. Accepts the publisher's own numbering when the feed
-     * has it and falls back to position in the archive, which is what the rest of
+     * Jump-to-episode-number. Prefers the publisher's own numbering when the
+     * feed has it and falls back to archive position, which is what the rest of
      * the UI shows when it does not.
      */
     fun indexForEpisodeNumber(number: Int): Int? {
@@ -76,19 +97,42 @@ class ArchiveViewModel(private val container: AppContainer) : ViewModel() {
         return rows.indexOfFirst { it.orderIndex == number - 1 }.takeIf { it >= 0 }
     }
 
+    private fun yearOf(millis: Long): Int {
+        calendar.timeInMillis = millis
+        return calendar.get(Calendar.YEAR)
+    }
+
+    private val calendar = Calendar.getInstance(TimeZone.getDefault())
+
     private fun yearMarkers(rows: List<EpisodeRow>): List<YearMarker> {
-        val calendar = Calendar.getInstance(TimeZone.getDefault())
         val markers = mutableListOf<YearMarker>()
-        var lastYear = Int.MIN_VALUE
+        var last = Int.MIN_VALUE
         rows.forEachIndexed { index, row ->
-            val millis = row.pubDate ?: return@forEachIndexed
-            calendar.timeInMillis = millis
-            val year = calendar.get(Calendar.YEAR)
-            if (year != lastYear) {
+            val year = yearOf(row.pubDate ?: return@forEachIndexed)
+            if (year != last) {
                 markers += YearMarker(year, index)
-                lastYear = year
+                last = year
             }
         }
         return markers
+    }
+
+    /** `2021 · EPISODES 231-286` above the first row of each year. */
+    private fun yearBands(rows: List<EpisodeRow>): Map<Long, String> {
+        val bands = mutableMapOf<Long, String>()
+        var last = Int.MIN_VALUE
+        rows.forEachIndexed { index, row ->
+            val year = yearOf(row.pubDate ?: return@forEachIndexed)
+            if (year != last) {
+                val firstNumber = row.episodeNumber ?: (row.orderIndex + 1)
+                val lastOfYear = rows.drop(index).lastOrNull {
+                    it.pubDate != null && yearOf(it.pubDate) == year
+                }
+                val lastNumber = lastOfYear?.let { it.episodeNumber ?: (it.orderIndex + 1) } ?: firstNumber
+                bands[row.id] = "$year · EPISODES $firstNumber-$lastNumber"
+                last = year
+            }
+        }
+        return bands
     }
 }

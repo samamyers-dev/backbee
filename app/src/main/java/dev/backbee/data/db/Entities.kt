@@ -95,6 +95,11 @@ data class MarkEntity(
     @PrimaryKey @ColumnInfo(name = "episode_id") val episodeId: Long,
     val starred: Boolean = false,
     val note: String? = null,
+    /**
+     * Exempts an episode from the delete-played-after sweep. For the handful of
+     * episodes worth keeping on the device indefinitely.
+     */
+    @ColumnInfo(name = "keep_after_playing") val keepAfterPlaying: Boolean = false,
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
 )
 

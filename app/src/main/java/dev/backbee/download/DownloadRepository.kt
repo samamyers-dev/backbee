@@ -51,6 +51,7 @@ class DownloadRepository(
                 downloaded = row.downloadState == DownloadState.DONE && row.filePath != null,
                 bytes = estimateBytes(row.bytesTotal, row.enclosureBytes, row.durationSeconds),
                 hasEnclosure = !row.enclosureUrl.isNullOrBlank(),
+                keepAfterPlaying = row.keepAfterPlaying == true,
             )
         }
 

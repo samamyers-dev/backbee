@@ -36,6 +36,13 @@ class PlaybackRepository(private val db: BackbeeDatabase) {
 
     fun observeResumeTarget(showId: Long): Flow<EpisodeRow?> = episodeDao.observeNextUnplayed(showId)
 
+    suspend fun yearMarks(showId: Long) = episodeDao.yearMarks(showId)
+
+    fun observeDownloadedAhead(showId: Long, fromOrderIndex: Int): Flow<Int> =
+        episodeDao.observeDownloadedAhead(showId, fromOrderIndex)
+
+    suspend fun episodeCount(showId: Long): Int = episodeDao.count(showId)
+
     suspend fun queueWindow(showId: Long, fromOrderIndex: Int, limit: Int): List<EpisodeRow> =
         episodeDao.fromOrderIndex(showId, fromOrderIndex, limit)
 
@@ -78,6 +85,9 @@ class PlaybackRepository(private val db: BackbeeDatabase) {
 
     suspend fun setNote(episodeId: Long, note: String?, at: Long = System.currentTimeMillis()) =
         markDao.setNote(episodeId, note?.takeIf { it.isNotBlank() }, at)
+
+    suspend fun setKeepAfterPlaying(episodeId: Long, keep: Boolean, at: Long = System.currentTimeMillis()) =
+        markDao.setKeepAfterPlaying(episodeId, keep, at)
 
     suspend fun description(episodeId: Long): String? = episodeDao.description(episodeId)
 

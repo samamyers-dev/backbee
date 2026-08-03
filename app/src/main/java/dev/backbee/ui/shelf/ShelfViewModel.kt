@@ -3,6 +3,7 @@ package dev.backbee.ui.shelf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.backbee.core.feed.ArchiveProbe
+import dev.backbee.core.playback.RelativeTime
 import dev.backbee.data.db.ShowEntity
 import dev.backbee.data.db.ShowProgress
 import dev.backbee.data.net.DirectoryResult
@@ -24,16 +25,25 @@ import kotlinx.coroutines.launch
 data class ShelfEntry(
     val show: ShowEntity,
     val progress: ShowProgress?,
+    /** When this show was last played, for the "8 MONTHS AGO" half of the line. */
+    val lastTouchedAt: Long? = null,
 ) {
     val isComplete: Boolean get() = show.completedAt != null
 
-    /** "Paused at ep 89 of 412", or a completion badge, or nothing yet. */
-    fun bookmarkLine(): String {
-        val progress = progress ?: return "Not loaded yet"
-        if (progress.totalEpisodes == 0) return "No episodes"
-        if (isComplete) return "Finished · ${progress.totalEpisodes} episodes"
-        if (progress.playedEpisodes == 0) return "Not started · ${progress.totalEpisodes} episodes"
-        return "Paused at ep ${progress.playedEpisodes + 1} of ${progress.totalEpisodes}"
+    /**
+     * "PAUSED AT EP 89 / 412 · 8 MONTHS AGO". The elapsed time matters as much
+     * as the position: it is what tells you how cold the show has gone.
+     */
+    fun bookmarkLine(nowMillis: Long = System.currentTimeMillis()): String {
+        val progress = progress ?: return "NOT LOADED YET"
+        if (progress.totalEpisodes == 0) return "NO EPISODES"
+
+        val age = lastTouchedAt?.let { " · " + RelativeTime.since(it, nowMillis) }.orEmpty()
+        return when {
+            isComplete -> "COMPLETED · ${progress.totalEpisodes} EPS"
+            progress.playedEpisodes == 0 -> "NOT STARTED · ${progress.totalEpisodes} EPS"
+            else -> "PAUSED AT EP ${progress.playedEpisodes + 1} / ${progress.totalEpisodes}$age"
+        }
     }
 }
 
@@ -43,8 +53,9 @@ data class AddShowState(
     val results: List<DirectoryResult> = emptyList(),
     val adding: Boolean = false,
     val message: String? = null,
-    /** Phase 0's verdict for the show just added, surfaced rather than buried in a log. */
-    val lastProbe: ArchiveProbe.Report? = null,
+    /** Phase 0's verdict, rendered as readout lines rather than buried in a log. */
+    val probeLines: List<String> = emptyList(),
+    val probeUsable: Boolean = true,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -63,7 +74,9 @@ class ShelfViewModel(private val container: AppContainer) : ViewModel() {
                 // One progress flow per show, recombined - the shelf is a handful
                 // of rows, so this stays cheap.
                 combine(list.map { show -> shows.observeProgress(show.id).map { show to it } }) { pairs ->
-                    pairs.map { (show, progress) -> ShelfEntry(show, progress) }
+                    pairs.map { (show, progress) ->
+                        ShelfEntry(show, progress, show.completedAt ?: show.lastRefreshedAt)
+                    }
                 }
             }
         }
@@ -104,7 +117,7 @@ class ShelfViewModel(private val container: AppContainer) : ViewModel() {
     fun addByUrl(url: String) {
         val trimmed = url.trim()
         if (trimmed.isEmpty()) return
-        _addState.value = _addState.value.copy(adding = true, message = null, lastProbe = null)
+        _addState.value = _addState.value.copy(adding = true, message = null, probeLines = emptyList())
 
         viewModelScope.launch {
             try {
@@ -113,8 +126,8 @@ class ShelfViewModel(private val container: AppContainer) : ViewModel() {
                     adding = false,
                     query = "",
                     results = emptyList(),
-                    lastProbe = result.probe,
-                    message = summarise(result.probe, result.added, result.recoveredFromDirectory),
+                    probeLines = probeReadout(result.probe, result.added, result.recoveredFromDirectory),
+                    probeUsable = result.probe.isUsable || result.recoveredFromDirectory,
                 )
                 container.workScheduler.requestDownloadAhead(
                     container.settingsStore.current().wifiOnlyDownloads
@@ -122,30 +135,42 @@ class ShelfViewModel(private val container: AppContainer) : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _addState.value = _addState.value.copy(adding = false, message = "Could not add: ${e.message}")
+                _addState.value = _addState.value.copy(
+                    adding = false,
+                    probeLines = listOf("COULD NOT ADD: ${e.message}"),
+                    probeUsable = false,
+                )
             }
         }
     }
 
-    private fun summarise(probe: ArchiveProbe.Report, added: Int, recovered: Boolean): String = buildString {
-        append("Added $added episode(s). ")
-        when (probe.verdict) {
-            ArchiveProbe.Verdict.COMPLETE ->
-                append("The feed appears to hold the full archive.")
-
-            ArchiveProbe.Verdict.COMPLETE_VIA_PAGING ->
-                append("Full archive reached across ${probe.pagesFollowed} pages.")
-
-            ArchiveProbe.Verdict.LIKELY_TRUNCATED -> if (recovered) {
-                append("The feed was truncated; the rest came from Podcast Index.")
-            } else {
-                append("Warning: this feed looks truncated. ${probe.findings.firstOrNull().orEmpty()}")
+    /** The Phase 0 report as the terminal readout the spec asks for. */
+    private fun probeReadout(probe: ArchiveProbe.Report, added: Int, recovered: Boolean): List<String> =
+        buildList {
+            add("FEED OK // ${probe.episodesAfterPaging} ITEMS DECLARED")
+            add("ADDED $added EPISODE(S) TO THE ARCHIVE")
+            add(
+                if (probe.pagesFollowed > 1) "PAGED FEED: rel=next FOLLOWED x${probe.pagesFollowed}"
+                else "PAGED FEED: rel=next ABSENT"
+            )
+            probe.expectedTotal?.let { add("DIRECTORY CROSS-CHECK: $it") }
+            if (probe.episodesWithoutEnclosure > 0) {
+                add("UNPLAYABLE (NO ENCLOSURE): ${probe.episodesWithoutEnclosure}")
             }
-
-            ArchiveProbe.Verdict.INCONCLUSIVE ->
-                append("Could not confirm the archive is complete - worth checking by hand.")
+            add(
+                when {
+                    recovered -> "FEED WAS TRUNCATED. RECOVERED VIA PODCAST INDEX."
+                    probe.verdict == ArchiveProbe.Verdict.COMPLETE ->
+                        "FULL ARCHIVE AVAILABLE. NO IMPORT NEEDED."
+                    probe.verdict == ArchiveProbe.Verdict.COMPLETE_VIA_PAGING ->
+                        "FULL ARCHIVE AVAILABLE VIA PAGING."
+                    probe.verdict == ArchiveProbe.Verdict.LIKELY_TRUNCATED ->
+                        "WARNING: ARCHIVE LOOKS TRUNCATED."
+                    else -> "INCONCLUSIVE. VERIFY BEFORE STARTING THIS SHOW."
+                }
+            )
+            probe.findings.firstOrNull()?.let { add(it.uppercase()) }
         }
-    }
 
     fun makeActive(showId: Long) {
         viewModelScope.launch {
@@ -164,6 +189,6 @@ class ShelfViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun dismissMessage() {
-        _addState.value = _addState.value.copy(message = null, lastProbe = null)
+        _addState.value = _addState.value.copy(message = null, probeLines = emptyList())
     }
 }

@@ -7,92 +7,199 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 
 /**
- * Dark-first, high contrast, oversized.
+ * The FREE THEM. design system, as specified in docs/DESIGN.md.
  *
- * The screen matters for about three seconds at the start of a session and then
- * again on the couch. Both cases want the same thing: large type, few colours,
- * and enough contrast to read at arm's length on a car mount in daylight.
+ * Print-brutalist rather than Material: nothing is rounded, shadows are hard
+ * offsets with no blur, and borders are always visible. Material3 is still
+ * underneath for its components, but almost every visible property is
+ * overridden - see [dev.backbee.ui.components.brutal] for the surface treatment
+ * that does most of the work.
  */
-private val Amber = Color(0xFFFFB74D)
-private val AmberDeep = Color(0xFFE8891A)
-private val Ink = Color(0xFF101012)
-private val InkRaised = Color(0xFF1B1B1F)
-private val InkHigh = Color(0xFF26262B)
-private val Parchment = Color(0xFFF4EFE7)
-private val Muted = Color(0xFFA0A0AA)
-private val Danger = Color(0xFFE5534B)
 
-private val DarkColors = darkColorScheme(
-    primary = Amber,
-    onPrimary = Color(0xFF241600),
-    primaryContainer = AmberDeep,
-    onPrimaryContainer = Color(0xFF1A1000),
-    secondary = Parchment,
-    onSecondary = Ink,
-    background = Ink,
-    onBackground = Parchment,
-    surface = InkRaised,
-    onSurface = Parchment,
-    surfaceVariant = InkHigh,
-    onSurfaceVariant = Muted,
-    outline = Color(0xFF3A3A42),
-    error = Danger,
-    onError = Color(0xFF2A0000),
-)
+// -- Raw palette. Components use the semantic aliases below, never these. -----
 
-private val LightColors = lightColorScheme(
-    primary = AmberDeep,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFE0B2),
-    onPrimaryContainer = Color(0xFF2B1700),
-    secondary = Color(0xFF3D3D46),
-    background = Color(0xFFFBF8F3),
-    onBackground = Color(0xFF17171A),
-    surface = Color.White,
-    onSurface = Color(0xFF17171A),
-    surfaceVariant = Color(0xFFEDE8E0),
-    onSurfaceVariant = Color(0xFF55555E),
-    outline = Color(0xFFC9C4BB),
-    error = Color(0xFFB3261E),
-)
+private val Paper = Color(0xFFF2EDE4)
+private val Basalt = Color(0xFF181614)
+private val Espresso = Color(0xFF2E2824)
+private val Ochre = Color(0xFFC99653)
+private val Terracotta = Color(0xFFAD563E)
+private val Sage = Color(0xFF5D7B66)
+private val Slate = Color(0xFF3E5066)
+private val Crimson = Color(0xFF8C382A)
 
 /**
- * Type is a step or two larger than Material's defaults throughout. Everything
- * on these screens is read quickly, at a distance, often while moving.
+ * The semantic layer. Material's ColorScheme cannot express shadow colour or a
+ * dither tint, so the app reads colours from here and uses MaterialTheme only
+ * where a stock component demands it.
  */
-private val BackbeeTypography = Typography(
-    displayLarge = TextStyle(fontSize = 44.sp, lineHeight = 50.sp, fontWeight = FontWeight.Bold),
-    displayMedium = TextStyle(fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold),
-    headlineLarge = TextStyle(fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.SemiBold),
-    headlineMedium = TextStyle(fontSize = 25.sp, lineHeight = 31.sp, fontWeight = FontWeight.SemiBold),
-    titleLarge = TextStyle(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold),
-    titleMedium = TextStyle(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium),
-    bodyLarge = TextStyle(fontSize = 18.sp, lineHeight = 26.sp),
-    bodyMedium = TextStyle(fontSize = 16.sp, lineHeight = 23.sp),
-    labelLarge = TextStyle(fontSize = 16.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold),
-    labelMedium = TextStyle(fontSize = 14.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium),
+@Immutable
+data class BackbeeColors(
+    val bgPage: Color,
+    val bgPanel: Color,
+    val bgInverse: Color,
+    val textPrimary: Color,
+    val textInverse: Color,
+    val textMuted: Color,
+    val borderColor: Color,
+    val shadowColor: Color,
+    val ditherLine: Color,
+    val accentPrimary: Color = Ochre,
+    val accentSecondary: Color = Terracotta,
+    val accentFunctional: Color = Sage,
+    val accentInfo: Color = Slate,
+    val accentAlert: Color = Crimson,
+    val onAccentPrimary: Color = Espresso,
+    val onAccentSecondary: Color = Paper,
+    val onAccentAlert: Color = Paper,
 )
 
-/** Touch targets sized for gloves, a dog leash, and a car mount at arm's length. */
+private val LightColors = BackbeeColors(
+    bgPage = Paper,
+    bgPanel = Paper,
+    bgInverse = Espresso,
+    textPrimary = Espresso,
+    textInverse = Paper,
+    textMuted = Espresso.copy(alpha = 0.70f),
+    borderColor = Espresso,
+    shadowColor = Espresso,
+    ditherLine = Color(0x0D2E2824),
+)
+
+private val DarkColors = BackbeeColors(
+    bgPage = Basalt,
+    bgPanel = Basalt,
+    bgInverse = Paper,
+    textPrimary = Paper,
+    textInverse = Basalt,
+    textMuted = Paper.copy(alpha = 0.70f),
+    borderColor = Paper,
+    shadowColor = Paper,
+    ditherLine = Color(0x08F2EDE4),
+)
+
+val LocalBackbeeColors = staticCompositionLocalOf { DarkColors }
+
+// -- Form -------------------------------------------------------------------
+
+/**
+ * Border weights and shadow offsets. The spec calls for 1/2/3/4px borders and
+ * 3/6/9px shadow offsets; dp is close enough on every density that matters and
+ * keeps the look consistent across devices.
+ */
+object Stroke {
+    val thin = 1.dp
+    val divider = 2.dp
+    val heavy = 3.dp
+    val thick = 4.dp
+}
+
+object Shadow {
+    val sm = 3.dp
+    val md = 6.dp
+    val lg = 9.dp
+}
+
+/** Spacing scale from the spec, plus the touch sizes the product principles demand. */
 object Dimens {
-    val touchTarget = 64.dp
-    val giantButton = 148.dp
+    val space1 = 4.dp
+    val space2 = 8.dp
+    val space3 = 12.dp
+    val space4 = 16.dp
+    val space5 = 20.dp
+    val space6 = 24.dp
+    val space8 = 32.dp
+    val space10 = 40.dp
+    val space12 = 48.dp
+    val space16 = 64.dp
+
     val gutter = 20.dp
     val gap = 12.dp
-    val rowHeight = 76.dp
-    val artworkLarge = 220.dp
+
+    val touchTarget = 64.dp
+    val giantButton = 140.dp
+    val rowMinHeight = 72.dp
+    val artworkLarge = 200.dp
     val artworkSmall = 56.dp
+    val ditherCell = 24.dp
 }
+
+// -- Type -------------------------------------------------------------------
+
+/**
+ * The spec asks for Impact and JetBrains Mono. Neither ships with Android, and
+ * this build deliberately bundles no font binaries and makes no network call to
+ * fetch one, so the system families stand in: a black-weight sans for the
+ * display numerals, and the platform monospace for every readout.
+ *
+ * The character the design depends on - heavy numerals, monospaced status
+ * lines, very wide tracking on small caps - all survives the substitution. If
+ * the exact faces matter later, drop the TTFs into res/font and change only
+ * these two values.
+ */
+private val Display = FontFamily.SansSerif
+private val Mono = FontFamily.Monospace
+
+object BackbeeType {
+    /** Big numerals: episode number, hours listened, the completion stats. */
+    val displayLarge = TextStyle(
+        fontFamily = Display, fontSize = 56.sp, lineHeight = 56.sp,
+        fontWeight = FontWeight.Black, letterSpacing = (-0.02).em,
+    )
+    val displayMedium = TextStyle(
+        fontFamily = Display, fontSize = 44.sp, lineHeight = 46.sp,
+        fontWeight = FontWeight.Black, letterSpacing = (-0.02).em,
+    )
+    val displaySmall = TextStyle(
+        fontFamily = Display, fontSize = 32.sp, lineHeight = 34.sp,
+        fontWeight = FontWeight.Black, letterSpacing = (-0.02).em,
+    )
+
+    /** Episode titles and screen headings. */
+    val title = TextStyle(
+        fontFamily = Display, fontSize = 22.sp, lineHeight = 27.sp,
+        fontWeight = FontWeight.Bold,
+    )
+    val titleSmall = TextStyle(
+        fontFamily = Display, fontSize = 18.sp, lineHeight = 23.sp,
+        fontWeight = FontWeight.Bold,
+    )
+
+    val body = TextStyle(fontFamily = Display, fontSize = 16.sp, lineHeight = 24.sp)
+    val bodySmall = TextStyle(fontFamily = Display, fontSize = 14.sp, lineHeight = 21.sp)
+
+    /** Every readout, timestamp, episode number and status chip. */
+    val mono = TextStyle(fontFamily = Mono, fontSize = 14.sp, lineHeight = 20.sp)
+    val monoSmall = TextStyle(fontFamily = Mono, fontSize = 12.sp, lineHeight = 17.sp)
+    val monoMicro = TextStyle(fontFamily = Mono, fontSize = 10.sp, lineHeight = 14.sp)
+
+    /** Small caps labels - NEXT UP, ON DEVICE. The tracking is the whole effect. */
+    val label = TextStyle(
+        fontFamily = Mono, fontSize = 12.sp, lineHeight = 16.sp,
+        fontWeight = FontWeight.Bold, letterSpacing = 0.15.em,
+    )
+    val labelSmall = TextStyle(
+        fontFamily = Mono, fontSize = 10.sp, lineHeight = 14.sp,
+        fontWeight = FontWeight.Bold, letterSpacing = 0.15.em,
+    )
+}
+
+// -- Entry point ------------------------------------------------------------
 
 @Composable
 fun BackbeeTheme(
@@ -109,9 +216,76 @@ fun BackbeeTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colors,
-        typography = BackbeeTypography,
-        content = content,
+    // Material still backs the stock components (text fields, sliders,
+    // switches), so its scheme is mapped onto the same semantic colours to stop
+    // anything Material-shaped from looking like a different app.
+    val materialScheme = if (darkTheme) {
+        darkColorScheme(
+            primary = colors.accentPrimary,
+            onPrimary = colors.onAccentPrimary,
+            secondary = colors.accentSecondary,
+            onSecondary = colors.onAccentSecondary,
+            background = colors.bgPage,
+            onBackground = colors.textPrimary,
+            surface = colors.bgPanel,
+            onSurface = colors.textPrimary,
+            surfaceVariant = colors.bgPanel,
+            onSurfaceVariant = colors.textMuted,
+            outline = colors.borderColor,
+            error = colors.accentAlert,
+            onError = colors.onAccentAlert,
+        )
+    } else {
+        lightColorScheme(
+            primary = colors.accentPrimary,
+            onPrimary = colors.onAccentPrimary,
+            secondary = colors.accentSecondary,
+            onSecondary = colors.onAccentSecondary,
+            background = colors.bgPage,
+            onBackground = colors.textPrimary,
+            surface = colors.bgPanel,
+            onSurface = colors.textPrimary,
+            surfaceVariant = colors.bgPanel,
+            onSurfaceVariant = colors.textMuted,
+            outline = colors.borderColor,
+            error = colors.accentAlert,
+            onError = colors.onAccentAlert,
+        )
+    }
+
+    val typography = Typography(
+        displayLarge = BackbeeType.displayLarge,
+        displayMedium = BackbeeType.displayMedium,
+        displaySmall = BackbeeType.displaySmall,
+        headlineMedium = BackbeeType.title,
+        titleLarge = BackbeeType.title,
+        titleMedium = BackbeeType.titleSmall,
+        bodyLarge = BackbeeType.body,
+        bodyMedium = BackbeeType.bodySmall,
+        labelLarge = BackbeeType.label,
+        labelMedium = BackbeeType.monoSmall,
+        labelSmall = BackbeeType.labelSmall,
     )
+
+    CompositionLocalProvider(LocalBackbeeColors provides colors) {
+        MaterialTheme(
+            colorScheme = materialScheme,
+            typography = typography,
+            // Zero radius everywhere. This is the single most defining property
+            // of the system, so it is enforced at the theme rather than left to
+            // each component to remember.
+            shapes = androidx.compose.material3.Shapes(
+                extraSmall = RectangleShape,
+                small = RectangleShape,
+                medium = RectangleShape,
+                large = RectangleShape,
+                extraLarge = RectangleShape,
+            ),
+            content = content,
+        )
+    }
 }
+
+/** Shorthand for the semantic palette inside composables. */
+val backbeeColors: BackbeeColors
+    @Composable get() = LocalBackbeeColors.current

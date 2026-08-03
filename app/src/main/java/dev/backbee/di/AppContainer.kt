@@ -7,6 +7,7 @@ import dev.backbee.data.db.BackbeeDatabase
 import dev.backbee.data.net.Http
 import dev.backbee.data.net.HttpFeedFetcher
 import dev.backbee.data.net.PodcastDirectory
+import dev.backbee.data.prefs.Diagnostics
 import dev.backbee.data.prefs.SettingsStore
 import dev.backbee.data.repo.PlaybackRepository
 import dev.backbee.data.repo.ShowRepository
@@ -37,6 +38,8 @@ class AppContainer(context: Context) {
     val database: BackbeeDatabase by lazy { BackbeeDatabase.build(appContext) }
 
     val settingsStore: SettingsStore by lazy { SettingsStore(appContext) }
+
+    val diagnostics: Diagnostics by lazy { Diagnostics(appContext, applicationScope) }
 
     val episodeFiles: EpisodeFiles by lazy { EpisodeFiles(appContext) }
 

@@ -1,31 +1,21 @@
 package dev.backbee.ui.shelf
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,121 +27,216 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.backbee.ui.components.Artwork
-import dev.backbee.ui.components.SectionLabel
+import dev.backbee.ui.components.BrutalButton
+import dev.backbee.ui.components.BrutalOutlineButton
+import dev.backbee.ui.components.BrutalPanel
+import dev.backbee.ui.components.Label
+import dev.backbee.ui.components.Mono
+import dev.backbee.ui.components.Readout
+import dev.backbee.ui.components.StatusChip
+import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
+import dev.backbee.ui.theme.Shadow
+import dev.backbee.ui.theme.Stroke
+import dev.backbee.ui.theme.backbeeColors
 
 /**
  * The shelf: the active show on top, everything else waiting with its bookmark
- * frozen where it was left.
+ * frozen exactly where it was left.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShelfScreen(
     viewModel: ShelfViewModel,
-    onBack: () -> Unit,
     onOpenCompletion: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val addState by viewModel.addState.collectAsStateWithLifecycle()
     var pendingRemoval by remember { mutableStateOf<Long?>(null) }
+    val colors = backbeeColors
 
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text("Shelf") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(Dimens.gutter),
-            verticalArrangement = Arrangement.spacedBy(Dimens.gap),
-        ) {
-            item {
-                AddShowCard(
-                    query = addState.query,
-                    searching = addState.searching,
-                    adding = addState.adding,
-                    onQueryChange = viewModel::setQuery,
-                    onSearch = viewModel::search,
-                    onAddUrl = { viewModel.addByUrl(addState.query) },
+    LazyColumn(
+        modifier = modifier.fillMaxSize().background(colors.bgPage),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(Dimens.gutter),
+        verticalArrangement = Arrangement.spacedBy(Dimens.space3),
+    ) {
+        item {
+            Row(Modifier.fillMaxWidth()) {
+                Label("[Shelf] ${entries.size} shows", color = colors.textPrimary)
+                Spacer(Modifier.weight(1f))
+                Mono(
+                    "${entries.count { it.show.isActive }} ACTIVE",
+                    style = BackbeeType.monoSmall,
+                    color = colors.accentPrimary,
                 )
             }
+        }
 
-            addState.message?.let { message ->
-                item {
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.fillMaxWidth(),
+        item {
+            BrutalPanel(Modifier.fillMaxWidth()) {
+                Label("Add a show")
+                OutlinedTextField(
+                    value = addState.query,
+                    onValueChange = viewModel::setQuery,
+                    placeholder = { Mono("RSS URL OR SEARCH TERM", style = BackbeeType.monoSmall, color = colors.textMuted) },
+                    singleLine = true,
+                    textStyle = BackbeeType.mono,
+                    modifier = Modifier.fillMaxWidth().padding(top = Dimens.space2),
+                )
+                Row(
+                    Modifier.padding(top = Dimens.space2),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.space2),
+                ) {
+                    BrutalButton(
+                        onClick = { viewModel.addByUrl(addState.query) },
+                        enabled = !addState.adding && addState.query.isNotBlank(),
+                        shadow = Shadow.sm,
+                        minHeight = 48.dp,
+                        modifier = Modifier.weight(1f),
                     ) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text(message, style = MaterialTheme.typography.bodyMedium)
-                            TextButton(onClick = viewModel::dismissMessage) { Text("Dismiss") }
-                        }
+                        Mono(
+                            if (addState.adding) "FETCHING…" else "FETCH FEED",
+                            style = BackbeeType.monoSmall,
+                            color = colors.onAccentPrimary,
+                        )
+                    }
+                    BrutalOutlineButton(
+                        onClick = viewModel::search,
+                        enabled = !addState.searching && addState.query.isNotBlank(),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Mono(
+                            if (addState.searching) "SEARCHING…" else "SEARCH INDEX",
+                            style = BackbeeType.monoSmall,
+                            color = colors.textPrimary,
+                        )
                     }
                 }
             }
+        }
 
-            if (addState.results.isNotEmpty()) {
-                item { SectionLabel("Search results") }
-                items(addState.results, key = { it.feedUrl }) { result ->
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Row(
-                            Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Artwork(result.artworkUrl)
-                            Column(
-                                Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = Dimens.gap),
-                            ) {
-                                Text(
-                                    result.title,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    text = listOfNotNull(
-                                        result.author,
-                                        result.episodeCount?.let { "$it episodes" },
-                                    ).joinToString(" · "),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            FilledTonalButton(onClick = { viewModel.addByUrl(result.feedUrl) }) {
-                                Text("Add")
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (entries.isNotEmpty()) {
-                item { SectionLabel("Shows") }
-                items(entries, key = { it.show.id }) { entry ->
-                    ShelfCard(
-                        entry = entry,
-                        onMakeActive = { viewModel.makeActive(entry.show.id) },
-                        onOpenCompletion = { onOpenCompletion(entry.show.id) },
-                        onRemove = { pendingRemoval = entry.show.id },
+        // Phase 0, surfaced. "This feed only has the last 300 of 1,247" is
+        // something to learn now, not 300 episodes in.
+        if (addState.probeLines.isNotEmpty()) {
+            item {
+                Column {
+                    Label("Archive completeness check")
+                    Spacer(Modifier.height(Dimens.space2))
+                    Readout(
+                        lines = addState.probeLines,
+                        tone = if (addState.probeUsable) colors.accentFunctional else colors.accentAlert,
                     )
+                    TextButton(onClick = viewModel::dismissMessage) {
+                        Mono("DISMISS", style = BackbeeType.monoSmall, color = colors.textMuted)
+                    }
+                }
+            }
+        }
+
+        if (addState.results.isNotEmpty()) {
+            item { Label("Search results") }
+            items(addState.results, key = { it.feedUrl }) { result ->
+                BrutalPanel(Modifier.fillMaxWidth(), shadow = Shadow.sm, borderWidth = Stroke.thin) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Artwork(result.artworkUrl, result.title)
+                        Column(Modifier.weight(1f).padding(horizontal = Dimens.space3)) {
+                            Text(
+                                result.title,
+                                style = BackbeeType.titleSmall,
+                                color = colors.textPrimary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Mono(
+                                listOfNotNull(result.author, result.episodeCount?.let { "$it EPISODES" })
+                                    .joinToString(" · ").uppercase(),
+                                style = BackbeeType.monoMicro,
+                                color = colors.textMuted,
+                            )
+                        }
+                        BrutalButton(
+                            onClick = { viewModel.addByUrl(result.feedUrl) },
+                            shadow = Shadow.sm,
+                            minHeight = 40.dp,
+                            modifier = Modifier.width(84.dp),
+                        ) {
+                            Mono("ADD", style = BackbeeType.monoSmall, color = colors.onAccentPrimary)
+                        }
+                    }
+                }
+            }
+        }
+
+        if (entries.isNotEmpty()) {
+            item { Label("Shows") }
+            items(entries, key = { it.show.id }) { entry ->
+                BrutalPanel(
+                    Modifier.fillMaxWidth(),
+                    borderWidth = if (entry.show.isActive) Stroke.thick else Stroke.divider,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Artwork(entry.show.artworkUrl, entry.show.title)
+                        Column(Modifier.weight(1f).padding(start = Dimens.space3)) {
+                            when {
+                                entry.show.isActive -> StatusChip("Reading")
+                                entry.isComplete -> StatusChip(
+                                    "Completed",
+                                    background = colors.accentFunctional,
+                                    contentColor = colors.onAccentSecondary,
+                                )
+                                else -> StatusChip(
+                                    "Bookmarked — frozen",
+                                    background = colors.bgInverse,
+                                    contentColor = colors.textInverse,
+                                )
+                            }
+                            Text(
+                                entry.show.title,
+                                style = BackbeeType.titleSmall,
+                                color = colors.textPrimary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                            Mono(
+                                entry.bookmarkLine(),
+                                style = BackbeeType.monoSmall,
+                                color = colors.textMuted,
+                            )
+                        }
+                    }
+
+                    Row(
+                        Modifier.padding(top = Dimens.space3),
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.space2),
+                    ) {
+                        if (!entry.show.isActive) {
+                            // The only promotion action there is.
+                            BrutalButton(
+                                onClick = { viewModel.makeActive(entry.show.id) },
+                                shadow = Shadow.sm,
+                                minHeight = 44.dp,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Mono("ACTIVATE", style = BackbeeType.monoSmall, color = colors.onAccentPrimary)
+                            }
+                        }
+                        if (entry.isComplete) {
+                            BrutalOutlineButton(
+                                onClick = { onOpenCompletion(entry.show.id) },
+                                minHeight = 44.dp,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Mono("RECAP", style = BackbeeType.monoSmall, color = colors.textPrimary)
+                            }
+                        }
+                        BrutalOutlineButton(
+                            onClick = { pendingRemoval = entry.show.id },
+                            minHeight = 44.dp,
+                        ) {
+                            Mono("REMOVE", style = BackbeeType.monoSmall, color = colors.accentAlert)
+                        }
+                    }
                 }
             }
         }
@@ -160,144 +245,24 @@ fun ShelfScreen(
     pendingRemoval?.let { showId ->
         AlertDialog(
             onDismissRequest = { pendingRemoval = null },
-            title = { Text("Remove this show?") },
+            title = { Label("Remove this show?", color = colors.textPrimary) },
             text = {
-                Text("Its episodes, downloads, position and notes are all deleted. This cannot be undone.")
+                Text(
+                    "Its episodes, downloads, position and notes are all deleted. This cannot be undone.",
+                    style = BackbeeType.body,
+                    color = colors.textMuted,
+                )
             },
             confirmButton = {
-                TextButton(onClick = {
-                    viewModel.removeShow(showId)
-                    pendingRemoval = null
-                }) {
-                    Text("Remove")
+                TextButton(onClick = { viewModel.removeShow(showId); pendingRemoval = null }) {
+                    Mono("REMOVE", style = BackbeeType.monoSmall, color = colors.accentAlert)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingRemoval = null }) { Text("Keep") }
+                TextButton(onClick = { pendingRemoval = null }) {
+                    Mono("KEEP", style = BackbeeType.monoSmall, color = colors.textPrimary)
+                }
             },
         )
-    }
-}
-
-@Composable
-private fun AddShowCard(
-    query: String,
-    searching: Boolean,
-    adding: Boolean,
-    onQueryChange: (String) -> Unit,
-    onSearch: () -> Unit,
-    onAddUrl: () -> Unit,
-) {
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            SectionLabel("Add a show")
-            OutlinedTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                label = { Text("RSS URL or search term") },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = Dimens.gap),
-            )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(Dimens.gap),
-                modifier = Modifier.padding(top = Dimens.gap),
-            ) {
-                // Adding by URL is the direct path; search is the convenience.
-                Button(
-                    onClick = onAddUrl,
-                    enabled = !adding && query.isNotBlank(),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    if (adding) {
-                        CircularProgressIndicator(
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.padding(end = 8.dp),
-                        )
-                    }
-                    Text("Add by URL")
-                }
-                OutlinedButton(
-                    onClick = onSearch,
-                    enabled = !searching && query.isNotBlank(),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(if (searching) "Searching…" else "Search")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ShelfCard(
-    entry: ShelfEntry,
-    onMakeActive: () -> Unit,
-    onOpenCompletion: () -> Unit,
-    onRemove: () -> Unit,
-) {
-    val active = entry.show.isActive
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = if (active) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface,
-        border = if (active) {
-            androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-        } else {
-            null
-        },
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Artwork(entry.show.artworkUrl)
-                Column(
-                    Modifier
-                        .weight(1f)
-                        .padding(start = Dimens.gap),
-                ) {
-                    if (active) {
-                        Text(
-                            text = "ACTIVE",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    Text(
-                        text = entry.show.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = entry.bookmarkLine(),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(Dimens.gap),
-                modifier = Modifier.padding(top = Dimens.gap),
-            ) {
-                if (!active) {
-                    // The only promotion action there is.
-                    FilledTonalButton(onClick = onMakeActive, modifier = Modifier.weight(1f)) {
-                        Text("Make active")
-                    }
-                }
-                if (entry.isComplete) {
-                    OutlinedButton(onClick = onOpenCompletion, modifier = Modifier.weight(1f)) {
-                        Text("Recap")
-                    }
-                }
-                OutlinedButton(onClick = onRemove) { Text("Remove") }
-            }
-        }
     }
 }

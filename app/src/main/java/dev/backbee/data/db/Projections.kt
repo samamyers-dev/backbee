@@ -24,6 +24,7 @@ data class EpisodeRow(
     @ColumnInfo(name = "played_at") val playedAt: Long?,
     val starred: Boolean?,
     val note: String?,
+    @ColumnInfo(name = "keep_after_playing") val keepAfterPlaying: Boolean?,
     @ColumnInfo(name = "download_state") val downloadState: DownloadState?,
     @ColumnInfo(name = "file_path") val filePath: String?,
     @ColumnInfo(name = "bytes_total") val bytesTotal: Long?,
@@ -31,6 +32,7 @@ data class EpisodeRow(
 ) {
     val isPlayed: Boolean get() = played == true
     val isStarred: Boolean get() = starred == true
+    val isKept: Boolean get() = keepAfterPlaying == true
     val isDownloaded: Boolean get() = downloadState == DownloadState.DONE && filePath != null
 
     /** 0f..1f, or null when the episode has not been started or has no known duration. */
@@ -69,6 +71,7 @@ data class DownloadSlotRow(
     val played: Boolean?,
     @ColumnInfo(name = "played_at") val playedAt: Long?,
     @ColumnInfo(name = "download_state") val downloadState: DownloadState?,
+    @ColumnInfo(name = "keep_after_playing") val keepAfterPlaying: Boolean?,
     @ColumnInfo(name = "bytes_total") val bytesTotal: Long?,
     @ColumnInfo(name = "enclosure_bytes") val enclosureBytes: Long?,
     @ColumnInfo(name = "duration_s") val durationSeconds: Long?,
@@ -87,4 +90,10 @@ data class LocalFileRow(
     @ColumnInfo(name = "episode_id") val episodeId: Long,
     @ColumnInfo(name = "file_path") val filePath: String,
     @ColumnInfo(name = "enclosure_url") val enclosureUrl: String?,
+)
+
+/** A publication year and where in the archive it starts, for the spine and the scrubber. */
+data class YearMarkRow(
+    val year: Int,
+    @ColumnInfo(name = "order_index") val orderIndex: Int,
 )

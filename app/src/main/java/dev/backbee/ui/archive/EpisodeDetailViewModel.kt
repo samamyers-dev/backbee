@@ -53,6 +53,10 @@ class EpisodeDetailViewModel(
         viewModelScope.launch { playback.setNote(episodeId, note) }
     }
 
+    fun setKeepAfterPlaying(keep: Boolean) {
+        viewModelScope.launch { playback.setKeepAfterPlaying(episodeId, keep) }
+    }
+
     fun toggleStar() {
         val current = state.value.row?.isStarred ?: false
         viewModelScope.launch { playback.setStarred(episodeId, !current) }

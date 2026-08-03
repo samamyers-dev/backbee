@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "backbee_settings")
+internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "backbee_settings")
 
 /** Everything on the global Settings screen. Per-show values live on the show row. */
 data class Settings(
@@ -53,7 +53,7 @@ class SettingsStore(private val context: Context) {
         val backupEnabled = booleanPreferencesKey("backup_enabled")
     }
 
-    val settings: Flow<Settings> = context.dataStore.data.map { prefs ->
+    val settings: Flow<Settings> = context.settingsDataStore.data.map { prefs ->
         val defaults = Settings()
         Settings(
             downloadAhead = prefs[Keys.downloadAhead] ?: defaults.downloadAhead,
@@ -97,6 +97,6 @@ class SettingsStore(private val context: Context) {
     suspend fun setBackupEnabled(value: Boolean) = edit { it[Keys.backupEnabled] = value }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
-        context.dataStore.edit(block)
+        context.settingsDataStore.edit(block)
     }
 }

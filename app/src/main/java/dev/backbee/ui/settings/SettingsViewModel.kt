@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.backbee.core.playback.ResumeTier
 import dev.backbee.data.db.ShowEntity
+import dev.backbee.data.prefs.DiagnosticsSnapshot
 import dev.backbee.data.prefs.Settings
 import dev.backbee.di.AppContainer
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,6 +17,7 @@ data class SettingsUiState(
     val settings: Settings = Settings(),
     val activeShow: ShowEntity? = null,
     val bytesOnDisk: Long = 0,
+    val diagnostics: DiagnosticsSnapshot = DiagnosticsSnapshot(),
 )
 
 class SettingsViewModel(private val container: AppContainer) : ViewModel() {
@@ -24,8 +26,9 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         container.settingsStore.settings,
         container.showRepository.observeActiveShow(),
         container.downloadRepository.observeBytesOnDisk(),
-    ) { settings, show, bytes ->
-        SettingsUiState(settings, show, bytes)
+        container.diagnostics.snapshot,
+    ) { settings, show, bytes, diagnostics ->
+        SettingsUiState(settings, show, bytes, diagnostics)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
     // -- Per-show -----------------------------------------------------------

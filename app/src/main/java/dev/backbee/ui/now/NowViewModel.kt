@@ -3,16 +3,20 @@ package dev.backbee.ui.now
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.backbee.core.playback.ArchiveProgress
+import dev.backbee.core.playback.SmartResume
 import dev.backbee.data.db.EpisodeRow
 import dev.backbee.data.db.ShowEntity
 import dev.backbee.di.AppContainer
 import dev.backbee.playback.PlayerConnection
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -22,7 +26,12 @@ data class NowUiState(
     val resumeTarget: EpisodeRow? = null,
     val progress: ArchiveProgress? = null,
     val upNext: List<EpisodeRow> = emptyList(),
-    /** True once every episode is played; the Now screen hands over to the recap. */
+    /** Year label paired with its 0f..1f position along the archive spine. */
+    val yearMarks: List<Pair<Int, Float>> = emptyList(),
+    /** How many unplayed episodes ahead are already on disk. */
+    val downloadedAhead: Int = 0,
+    /** "SAVED 26:41 → RESUME FROM 26:11 · TIER −30S", or empty when there is nothing to say. */
+    val resumeReadout: String = "",
     val archiveComplete: Boolean = false,
 ) {
     val hasShow: Boolean get() = show != null
@@ -55,17 +64,46 @@ class NowViewModel(
         if (show == null) flowOf(null) else shows.observeProgress(show.id)
     }
 
+    private val downloadedAhead = combine(activeShow, resumeTarget) { show, target -> show to target }
+        .flatMapLatest { (show, target) ->
+            if (show == null) flowOf(0)
+            else playback.observeDownloadedAhead(show.id, target?.orderIndex ?: 0)
+        }
+
+    // Year marks change only when the archive is re-ingested, so they are loaded
+    // once per show rather than recomputed on every position write.
+    private val yearMarks = MutableStateFlow<List<Pair<Int, Float>>>(emptyList())
+
+    private val resumeReadout = MutableStateFlow("")
+
+    init {
+        viewModelScope.launch {
+            activeShow.map { it?.id }.distinctUntilChanged().collect { showId ->
+                yearMarks.value = if (showId == null) emptyList() else loadYearMarks(showId)
+            }
+        }
+        viewModelScope.launch {
+            resumeTarget.collect { target -> resumeReadout.value = describeResume(target) }
+        }
+    }
+
     val state: StateFlow<NowUiState> = combine(
-        activeShow,
-        resumeTarget,
-        upNext,
-        progress,
-    ) { show, target, next, showProgress ->
+        combine(activeShow, resumeTarget, upNext, progress) { show, target, next, p ->
+            Quad(show, target, next, p)
+        },
+        yearMarks,
+        downloadedAhead,
+        resumeReadout,
+    ) { core, marks, ahead, readout ->
+        val (show, target, next, showProgress) = core
         NowUiState(
             loading = false,
             show = show,
             resumeTarget = target,
             upNext = next,
+            yearMarks = marks,
+            downloadedAhead = ahead,
+            resumeReadout = readout,
             archiveComplete = show != null && showProgress != null &&
                 showProgress.totalEpisodes > 0 && showProgress.playedEpisodes >= showProgress.totalEpisodes,
             progress = showProgress?.let {
@@ -82,6 +120,31 @@ class NowViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NowUiState())
 
+    private suspend fun loadYearMarks(showId: Long): List<Pair<Int, Float>> {
+        val total = playback.episodeCount(showId).takeIf { it > 0 } ?: return emptyList()
+        return playback.yearMarks(showId).map { it.year to (it.orderIndex.toFloat() / total) }
+    }
+
+    /**
+     * States the rewind before it happens. Smart resume silently moving the
+     * position backwards is exactly the kind of thing that feels like a bug when
+     * it is unexplained.
+     */
+    private suspend fun describeResume(target: EpisodeRow?): String {
+        val saved = target?.positionSeconds ?: return ""
+        if (saved <= 0) return ""
+        val updatedAt = playback.position(target.id)?.updatedAt ?: return ""
+
+        val awaySeconds = ((System.currentTimeMillis() - updatedAt) / 1000).coerceAtLeast(0)
+        val tiers = container.settingsStore.current().resumeTiers
+        val rewind = SmartResume.rewindSeconds(awaySeconds, tiers)
+        if (rewind <= 0) return ""
+
+        val from = SmartResume.resumePositionSeconds(saved, awaySeconds, tiers)
+        return "SAVED ${ArchiveProgress.formatClock(saved)} → " +
+            "FROM ${ArchiveProgress.formatClock(from)} · −${rewind}S"
+    }
+
     /** Persists the show's speed and applies it to playback already in flight. */
     fun setSpeed(speed: Float) {
         val show = state.value.show ?: return
@@ -91,6 +154,13 @@ class NowViewModel(
 
     fun refreshNow() {
         container.workScheduler.refreshNow()
+    }
+
+    private data class Quad<A, B, C, D>(val a: A, val b: B, val c: C, val d: D) {
+        operator fun component1() = a
+        operator fun component2() = b
+        operator fun component3() = c
+        operator fun component4() = d
     }
 
     companion object {

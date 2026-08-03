@@ -67,9 +67,11 @@ class BackupWorker(
 
             pruneOldBackups(folder)
             Log.i(TAG, "Wrote checkpoint $name (${staging.length() / 1024} KB)")
+            container.diagnostics.recordCheckpoint(System.currentTimeMillis(), "OK")
             Result.success()
         } catch (e: Exception) {
             Log.w(TAG, "Backup failed", e)
+            container.diagnostics.recordCheckpoint(System.currentTimeMillis(), "FAILED: ${e.message}")
             Result.retry()
         } finally {
             staging.delete()

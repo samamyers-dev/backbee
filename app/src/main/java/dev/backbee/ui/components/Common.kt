@@ -1,53 +1,53 @@
 package dev.backbee.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Podcasts
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
+import dev.backbee.ui.theme.Stroke
+import dev.backbee.ui.theme.backbeeColors
 
-/** Show artwork with a placeholder that does not look broken when a feed has none. */
+/**
+ * Show artwork. Square-cornered and bordered like everything else, with the
+ * show's initials as the placeholder rather than a generic glyph - a shelf of
+ * three-letter blocks reads faster than a shelf of identical icons.
+ */
 @Composable
 fun Artwork(
     url: String?,
+    title: String? = null,
     size: Dp = Dimens.artworkSmall,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(if (size > 100.dp) 20.dp else 10.dp)
+    val colors = backbeeColors
     Box(
         modifier = modifier
             .size(size)
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .background(colors.bgInverse)
+            .border(Stroke.divider, colors.borderColor),
         contentAlignment = Alignment.Center,
     ) {
         if (url.isNullOrBlank()) {
-            Icon(
-                imageVector = Icons.Filled.Podcasts,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(size / 2.5f),
+            Text(
+                text = initialsOf(title),
+                style = if (size > 120.dp) BackbeeType.displaySmall else BackbeeType.label,
+                color = colors.textInverse,
             )
         } else {
             AsyncImage(
@@ -60,14 +60,11 @@ fun Artwork(
     }
 }
 
-@Composable
-fun SectionLabel(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text = text.uppercase(),
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = modifier,
-    )
+/** "Hey Riddle Riddle" -> "HRR". */
+internal fun initialsOf(title: String?): String {
+    val words = title?.split(' ', '-', ':')?.filter { it.isNotBlank() }.orEmpty()
+    if (words.isEmpty()) return "??"
+    return words.take(3).joinToString("") { it.first().uppercase() }
 }
 
 @Composable
@@ -75,6 +72,7 @@ fun EmptyState(
     title: String,
     body: String,
     modifier: Modifier = Modifier,
+    readout: List<String> = emptyList(),
     action: (@Composable () -> Unit)? = null,
 ) {
     Column(
@@ -84,42 +82,24 @@ fun EmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(title, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+        Text(
+            text = title,
+            style = BackbeeType.displaySmall,
+            color = backbeeColors.textPrimary,
+            textAlign = TextAlign.Center,
+        )
         Text(
             text = body,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = BackbeeType.body,
+            color = backbeeColors.textMuted,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = Dimens.gap),
+            modifier = Modifier.padding(top = Dimens.space3),
         )
         if (action != null) {
-            Box(Modifier.padding(top = Dimens.gutter)) { action() }
+            Box(Modifier.padding(top = Dimens.space6).fillMaxWidth()) { action() }
         }
-    }
-}
-
-/** Thin bar under an episode row showing how far into it you are. */
-@Composable
-fun ProgressStripe(fraction: Float, modifier: Modifier = Modifier) {
-    LinearProgressIndicator(
-        progress = { fraction.coerceIn(0f, 1f) },
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(2.dp)),
-        color = MaterialTheme.colorScheme.primary,
-        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-    )
-}
-
-@Composable
-fun MetaRow(vararg parts: String?, modifier: Modifier = Modifier) {
-    val shown = parts.filterNotNull().filter { it.isNotBlank() }
-    if (shown.isEmpty()) return
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = shown.joinToString("  ·  "),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (readout.isNotEmpty()) {
+            Readout(readout, modifier = Modifier.padding(top = Dimens.space6))
+        }
     }
 }

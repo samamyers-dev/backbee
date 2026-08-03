@@ -1,190 +1,152 @@
 package dev.backbee.ui.completion
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.backbee.core.playback.ArchiveProgress
 import dev.backbee.ui.components.Artwork
-import dev.backbee.ui.components.SectionLabel
+import dev.backbee.ui.components.BrutalButton
+import dev.backbee.ui.components.BrutalPanel
+import dev.backbee.ui.components.Glyph
+import dev.backbee.ui.components.Label
+import dev.backbee.ui.components.Mono
+import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
+import dev.backbee.ui.theme.Shadow
+import dev.backbee.ui.theme.Stroke
+import dev.backbee.ui.theme.backbeeColors
 import java.util.Locale
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Finishing a 1,200-episode archive is a year of someone's listening. This is
+ * the app saying so, before pointing at the next book on the shelf.
+ */
 @Composable
 fun CompletionScreen(
     viewModel: CompletionViewModel,
-    onBack: () -> Unit,
     onActivatedNextShow: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val colors = backbeeColors
 
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text("Finished") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(Dimens.gutter),
-            verticalArrangement = Arrangement.spacedBy(Dimens.gap),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
+    LazyColumn(
+        modifier = modifier.fillMaxSize().background(colors.bgPage),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(Dimens.gutter),
+        verticalArrangement = Arrangement.spacedBy(Dimens.space3),
+    ) {
+        item {
+            Column {
+                Label("[Archive complete]", color = colors.accentPrimary)
+                Spacer(Modifier.height(Dimens.space3))
+                Text("You finished", style = BackbeeType.displayMedium, color = colors.textPrimary)
+                Text("the book.", style = BackbeeType.displayMedium, color = colors.accentPrimary)
+                Spacer(Modifier.height(Dimens.space4))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Artwork(state.show?.artworkUrl, state.show?.title, size = 72.dp)
+                    Mono(
+                        text = "${state.show?.title.orEmpty().uppercase()} · " +
+                            "${state.stats?.episodeCount ?: 0} EPISODES",
+                        style = BackbeeType.monoSmall,
+                        color = colors.textMuted,
+                        modifier = Modifier.padding(start = Dimens.space3),
+                    )
+                }
+            }
+        }
+
+        state.stats?.let { stats ->
             item {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Artwork(state.show?.artworkUrl, size = Dimens.artworkLarge)
-                    Text(
-                        text = state.show?.title.orEmpty(),
-                        style = MaterialTheme.typography.headlineLarge,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = Dimens.gutter),
-                    )
-                    Text(
-                        text = "Archive complete",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
+                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.space3)) {
+                    StatBlock(stats.listenedHours.roundToInt().toString(), "HOURS LISTENED", Modifier.weight(1f))
+                    StatBlock(
+                        String.format(Locale.US, "%.1f", (stats.elapsedDays ?: 0L) / 365.0),
+                        "YEARS OF ARCHIVE",
+                        Modifier.weight(1f),
                     )
                 }
             }
-
-            state.stats?.let { stats ->
-                item {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Column(Modifier.padding(18.dp)) {
-                            StatLine("Episodes", String.format(Locale.US, "%,d", stats.episodeCount))
-                            StatLine("Hours of audio", stats.listenedHours.roundToInt().toString())
-                            StatLine(
-                                "Hours actually spent",
-                                stats.wallClockHours.roundToInt().toString(),
-                            )
-                            stats.dateRange()?.let { StatLine("Ran from", it) }
-                            stats.episodesPerWeek?.let {
-                                StatLine("Pace", String.format(Locale.US, "%.1f episodes/week", it))
-                            }
-                            StatLine("Starred", stats.starredCount.toString())
-                        }
-                    }
-                }
-            }
-
-            if (state.starred.isNotEmpty()) {
-                item {
-                    SectionLabel("Starred along the way", modifier = Modifier.fillMaxWidth())
-                }
-                items(state.starred, key = { it.id }) { row ->
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Row(
-                            Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                Icons.Filled.Star,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Column(Modifier.padding(start = Dimens.gap)) {
-                                Text(
-                                    text = "${row.episodeNumber ?: (row.orderIndex + 1)}. ${row.title}",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                row.note?.takeIf { it.isNotBlank() }?.let { note ->
-                                    Text(
-                                        text = note,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
             item {
-                SectionLabel("Next off the shelf", modifier = Modifier.fillMaxWidth())
-            }
-
-            if (state.otherShows.isEmpty()) {
-                item {
-                    Text(
-                        text = "Nothing else waiting. Add a show from the shelf when you are ready.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.space3)) {
+                    StatBlock("${ArchiveProgress.formatSpeed(stats.averageSpeed)}×", "AVERAGE SPEED", Modifier.weight(1f))
+                    StatBlock(
+                        String.format(Locale.US, "%.1f", stats.episodesPerWeek ?: 0.0),
+                        "EPS PER WEEK",
+                        Modifier.weight(1f),
                     )
                 }
-            } else {
-                items(state.otherShows, key = { it.id }) { show ->
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        modifier = Modifier.fillMaxWidth(),
+            }
+            stats.dateRange()?.let { range ->
+                item {
+                    Mono(range.uppercase(), style = BackbeeType.monoSmall, color = colors.textMuted)
+                }
+            }
+        }
+
+        if (state.starred.isNotEmpty()) {
+            item { Label("Starred — ${state.starred.size} episodes") }
+            items(state.starred, key = { it.id }) { row ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Mono(Glyph.STARRED, style = BackbeeType.monoSmall, color = colors.accentPrimary)
+                    Text(
+                        " ${row.episodeNumber ?: (row.orderIndex + 1)} · ${row.title}",
+                        style = BackbeeType.bodySmall,
+                        color = colors.textPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+
+        item { Label("Pick the next show") }
+
+        if (state.otherShows.isEmpty()) {
+            item {
+                Mono(
+                    "NOTHING ELSE WAITING. ADD A SHOW FROM THE SHELF WHEN YOU ARE READY.",
+                    style = BackbeeType.monoSmall,
+                    color = colors.textMuted,
+                )
+            }
+        } else {
+            items(state.otherShows, key = { it.id }) { show ->
+                BrutalPanel(Modifier.fillMaxWidth(), shadow = Shadow.sm, borderWidth = Stroke.thin) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Artwork(show.artworkUrl, show.title)
+                        Text(
+                            show.title,
+                            style = BackbeeType.titleSmall,
+                            color = colors.textPrimary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f).padding(horizontal = Dimens.space3),
+                        )
+                    }
+                    BrutalButton(
+                        onClick = { viewModel.activateShow(show.id, onActivatedNextShow) },
+                        shadow = Shadow.sm,
+                        minHeight = 44.dp,
+                        modifier = Modifier.padding(top = Dimens.space2),
                     ) {
-                        Row(
-                            Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Artwork(show.artworkUrl)
-                            Text(
-                                text = show.title,
-                                style = MaterialTheme.typography.titleMedium,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = Dimens.gap),
-                            )
-                            FilledTonalButton(
-                                onClick = { viewModel.activateShow(show.id, onActivatedNextShow) },
-                            ) {
-                                Text("Start this")
-                            }
-                        }
+                        Mono("START THIS", style = BackbeeType.monoSmall, color = colors.onAccentPrimary)
                     }
                 }
             }
@@ -193,19 +155,9 @@ fun CompletionScreen(
 }
 
 @Composable
-private fun StatLine(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
-        )
-        Text(text = value, style = MaterialTheme.typography.titleMedium)
+private fun StatBlock(value: String, label: String, modifier: Modifier = Modifier) {
+    BrutalPanel(modifier, shadow = Shadow.sm) {
+        Text(value, style = BackbeeType.displaySmall, color = backbeeColors.accentPrimary)
+        Mono(label, style = BackbeeType.monoMicro, color = backbeeColors.textMuted)
     }
 }

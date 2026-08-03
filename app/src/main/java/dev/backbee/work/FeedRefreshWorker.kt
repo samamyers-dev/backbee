@@ -43,6 +43,7 @@ class FeedRefreshWorker(
             }
         }
 
+        container.diagnostics.recordFeedRefresh(System.currentTimeMillis())
         if (failures > 0) Result.retry() else Result.success()
     }
 

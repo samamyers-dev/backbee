@@ -26,6 +26,7 @@ class PositionWriter(
     private val scope: CoroutineScope,
     private val repository: PlaybackRepository,
     private val onEpisodeFinished: suspend (episodeId: Long) -> Unit,
+    private val onFlushed: () -> Unit = {},
 ) : Player.Listener {
 
     private var player: Player? = null
@@ -106,6 +107,7 @@ class PositionWriter(
 
         scope.launch {
             runCatching { repository.savePosition(episodeId, positionSeconds) }
+                .onSuccess { onFlushed() }
                 .onFailure { Log.e(TAG, "Failed to persist position for $episodeId", it) }
         }
         Log.d(TAG, "flush($reason) episode=$episodeId at=${positionSeconds}s")

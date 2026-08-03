@@ -23,6 +23,7 @@ private const val EPISODE_COLUMNS = """
     p.played_at AS played_at,
     m.starred AS starred,
     m.note AS note,
+    m.keep_after_playing AS keep_after_playing,
     d.state AS download_state,
     d.file_path AS file_path,
     d.bytes_total AS bytes_total,
@@ -256,6 +257,37 @@ interface EpisodeDao {
     )
     suspend fun firstOrderIndexOnOrAfter(showId: Long, fromMillis: Long): Int?
 
+    /**
+     * One row per publication year with the archive position it starts at.
+     * Grouping in SQL keeps this ~10 rows instead of streaming 1,500 dates into
+     * memory every time the Now screen recomposes.
+     */
+    @Query(
+        """
+        SELECT CAST(strftime('%Y', pub_date / 1000, 'unixepoch') AS INTEGER) AS year,
+               MIN(order_index) AS order_index
+        FROM episodes
+        WHERE show_id = :showId AND pub_date IS NOT NULL
+        GROUP BY year
+        ORDER BY year ASC
+        """
+    )
+    suspend fun yearMarks(showId: Long): List<YearMarkRow>
+
+    /** Unplayed episodes at or after the bookmark that are already on disk. */
+    @Query(
+        """
+        SELECT COUNT(*) FROM episodes e
+        LEFT JOIN positions p ON p.episode_id = e.id
+        JOIN downloads d ON d.episode_id = e.id
+        WHERE e.show_id = :showId
+          AND e.order_index >= :fromOrderIndex
+          AND (p.played IS NULL OR p.played = 0)
+          AND d.state = 'DONE' AND d.file_path IS NOT NULL
+        """
+    )
+    fun observeDownloadedAhead(showId: Long, fromOrderIndex: Int): Flow<Int>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(episodes: List<EpisodeEntity>): List<Long>
 
@@ -362,8 +394,8 @@ interface MarkDao {
 
     @Query(
         """
-        INSERT INTO marks (episode_id, starred, note, updated_at)
-        VALUES (:episodeId, :starred, NULL, :at)
+        INSERT INTO marks (episode_id, starred, note, keep_after_playing, updated_at)
+        VALUES (:episodeId, :starred, NULL, 0, :at)
         ON CONFLICT(episode_id) DO UPDATE SET starred = :starred, updated_at = :at
         """
     )
@@ -371,12 +403,21 @@ interface MarkDao {
 
     @Query(
         """
-        INSERT INTO marks (episode_id, starred, note, updated_at)
-        VALUES (:episodeId, 0, :note, :at)
+        INSERT INTO marks (episode_id, starred, note, keep_after_playing, updated_at)
+        VALUES (:episodeId, 0, :note, 0, :at)
         ON CONFLICT(episode_id) DO UPDATE SET note = :note, updated_at = :at
         """
     )
     suspend fun setNote(episodeId: Long, note: String?, at: Long)
+
+    @Query(
+        """
+        INSERT INTO marks (episode_id, starred, note, keep_after_playing, updated_at)
+        VALUES (:episodeId, 0, NULL, :keep, :at)
+        ON CONFLICT(episode_id) DO UPDATE SET keep_after_playing = :keep, updated_at = :at
+        """
+    )
+    suspend fun setKeepAfterPlaying(episodeId: Long, keep: Boolean, at: Long)
 }
 
 @Dao
@@ -425,6 +466,7 @@ interface DownloadDao {
                p.played AS played,
                p.played_at AS played_at,
                d.state AS download_state,
+               m.keep_after_playing AS keep_after_playing,
                d.bytes_total AS bytes_total,
                e.enclosure_bytes AS enclosure_bytes,
                e.duration_s AS duration_s,
@@ -433,6 +475,7 @@ interface DownloadDao {
         FROM episodes e
         LEFT JOIN positions p ON p.episode_id = e.id
         LEFT JOIN downloads d ON d.episode_id = e.id
+        LEFT JOIN marks m ON m.episode_id = e.id
         WHERE e.show_id = :showId
         ORDER BY e.order_index ASC
         """

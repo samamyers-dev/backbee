@@ -1,6 +1,7 @@
 package dev.backbee.ui.now
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,26 +14,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Forward30
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Replay10
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -42,15 +32,25 @@ import dev.backbee.data.db.EpisodeRow
 import dev.backbee.playback.PlayerConnection
 import dev.backbee.playback.PlayerState
 import dev.backbee.ui.components.Artwork
+import dev.backbee.ui.components.BrutalButton
+import dev.backbee.ui.components.BrutalPanel
 import dev.backbee.ui.components.EmptyState
-import dev.backbee.ui.components.SectionLabel
+import dev.backbee.ui.components.Glyph
+import dev.backbee.ui.components.GlyphText
+import dev.backbee.ui.components.Label
+import dev.backbee.ui.components.Mono
+import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
+import dev.backbee.ui.theme.Shadow
+import dev.backbee.ui.theme.Stroke
+import dev.backbee.ui.theme.backbeeColors
 
 /**
- * The home screen, and the only one that matters while moving.
+ * Direction 1A, "Spine" - the recommended default from the screens spec.
  *
- * One giant button, one line of context, and a glance at what is coming. Every
- * other decision the app could ask for has already been made somewhere else.
+ * Artwork, then a book-spine progress rail marked with years, then one enormous
+ * RESUME. The spine is the whole idea made visible: a bookmark somewhere in a
+ * very long book, with everything read behind it and everything unread ahead.
  */
 @Composable
 fun NowScreen(
@@ -68,262 +68,286 @@ fun NowScreen(
         state.loading -> Box(modifier.fillMaxSize())
 
         !state.hasShow -> EmptyState(
-            title = "Nothing on the shelf",
-            body = "Add a show by RSS URL or search, and its archive becomes the queue.",
+            title = "The shelf is empty.",
+            body = "Add one show. Start at its oldest episode. " +
+                "Everything after that happens without you.",
             modifier = modifier,
-            action = {
-                FilledTonalButton(onClick = onOpenShelf) { Text("Open the shelf") }
-            },
+            readout = listOf(
+                "NO ACCOUNT REQUIRED",
+                "NO SYNC. NO BACKEND.",
+                "ONE SHOW AT A TIME, ON PURPOSE.",
+            ),
+            action = { BrutalButton(onClick = onOpenShelf) { Label("Add a show", color = backbeeColors.onAccentPrimary) } },
         )
 
         state.archiveComplete -> EmptyState(
-            title = "${state.show?.title} is finished",
-            body = "Every episode played. Take a look at how it went, then pick the next one off the shelf.",
+            title = "You finished the book.",
+            body = "${state.show?.title} is complete. Take a look at how it went, " +
+                "then pick the next one off the shelf.",
             modifier = modifier,
             action = {
-                FilledTonalButton(onClick = { state.show?.let { onOpenCompletion(it.id) } }) {
-                    Text("See the recap")
+                BrutalButton(onClick = { state.show?.let { onOpenCompletion(it.id) } }) {
+                    Label("See the recap", color = backbeeColors.onAccentPrimary)
                 }
             },
         )
 
-        else -> NowContent(
-            state = state,
-            playerState = playerState,
-            player = player,
-            onOpenArchive = onOpenArchive,
-            onSetSpeed = viewModel::setSpeed,
-            modifier = modifier,
-        )
+        else -> SpineNow(state, playerState, player, onOpenArchive, modifier)
     }
 }
 
 @Composable
-private fun NowContent(
+private fun SpineNow(
     state: NowUiState,
     playerState: PlayerState,
     player: PlayerConnection,
     onOpenArchive: () -> Unit,
-    onSetSpeed: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colors = backbeeColors
     val target = state.resumeTarget
-    // While something is playing the transport reflects the player; otherwise it
-    // reflects the bookmark, so the screen reads the same either way.
-    val playingThisEpisode = playerState.episodeId != null && playerState.episodeId == target?.id
+    val playingThis = playerState.episodeId != null && playerState.episodeId == target?.id
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(Dimens.gutter),
-        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Artwork(state.show?.artworkUrl, size = Dimens.artworkLarge)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Artwork(state.show?.artworkUrl, state.show?.title, size = 88.dp)
+            Column(Modifier.padding(start = Dimens.space4)) {
+                Label(state.show?.title.orEmpty(), color = colors.textMuted)
+                state.downloadedAhead.takeIf { it > 0 }?.let {
+                    Mono(
+                        text = "$it DOWNLOADED",
+                        style = BackbeeType.monoSmall,
+                        color = colors.accentFunctional,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+        }
 
-        Text(
-            text = state.show?.title.orEmpty(),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = Dimens.gutter),
-        )
+        Spacer(Modifier.height(Dimens.space5))
 
-        Text(
-            text = target?.let { "${it.episodeNumber ?: (it.orderIndex + 1)}. ${it.title}" }.orEmpty(),
-            style = MaterialTheme.typography.headlineMedium,
-            textAlign = TextAlign.Center,
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 6.dp),
-        )
-
-        state.progress?.let { progress ->
+        Row(verticalAlignment = Alignment.Top) {
             Text(
-                text = progress.summary(),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = Dimens.gap),
+                text = (target?.episodeNumber ?: ((target?.orderIndex ?: 0) + 1)).toString(),
+                style = BackbeeType.displayMedium,
+                color = colors.accentPrimary,
             )
-            LinearProgressIndicator(
-                progress = { progress.percentByEpisodes / 100f },
+            Text(
+                text = target?.title.orEmpty(),
+                style = BackbeeType.title,
+                color = colors.textPrimary,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 10.dp)
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp)),
+                    .padding(start = Dimens.space3, top = 4.dp)
+                    .weight(1f),
             )
         }
 
-        Spacer(Modifier.height(28.dp))
+        target?.let { row ->
+            Mono(
+                text = listOfNotNull(
+                    row.pubDate?.let { java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.US).format(java.util.Date(it)).uppercase() },
+                    row.durationSeconds?.let { ArchiveProgress.formatDuration(it) },
+                ).joinToString("  ·  "),
+                style = BackbeeType.monoSmall,
+                color = colors.textMuted,
+                modifier = Modifier.padding(top = Dimens.space2),
+            )
+        }
 
-        Transport(
-            isPlaying = playerState.isPlaying,
-            onSkipBack = player::skipBack,
-            onSkipForward = player::skipForward,
-            onToggle = {
+        Spacer(Modifier.height(Dimens.space6))
+
+        state.progress?.let { progress ->
+            Label("Archive spine")
+            Spacer(Modifier.height(Dimens.space2))
+            Spine(
+                fraction = progress.percentByEpisodes / 100f,
+                yearMarks = state.yearMarks,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(Dimens.space2))
+            Mono(
+                text = progress.summary().uppercase(),
+                style = BackbeeType.monoSmall,
+                color = colors.textMuted,
+            )
+        }
+
+        Spacer(Modifier.height(Dimens.space8))
+
+        BrutalButton(
+            onClick = {
                 when {
                     playerState.isPlaying -> player.pause()
-                    playingThisEpisode -> player.resume()
+                    playingThis -> player.resume()
                     target != null -> player.playEpisode(target.id)
                     else -> player.resume()
                 }
             },
-        )
-
-        if (playingThisEpisode && playerState.durationMs > 0) {
+            minHeight = 96.dp,
+        ) {
             Text(
-                text = "${ArchiveProgress.formatClock(playerState.positionSeconds)} · " +
-                    "-${ArchiveProgress.formatClock(playerState.remainingMs / 1000)}",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = Dimens.gap),
+                text = if (playerState.isPlaying) "PAUSE" else if ((target?.positionSeconds ?: 0) > 0) "RESUME" else "PLAY",
+                style = BackbeeType.displaySmall,
+                color = colors.onAccentPrimary,
             )
         }
 
-        SpeedRow(
-            speed = state.show?.speed ?: 1f,
-            onSetSpeed = onSetSpeed,
-            modifier = Modifier.padding(top = Dimens.gutter),
-        )
-
-        Spacer(Modifier.height(32.dp))
-
-        if (state.upNext.isNotEmpty()) {
-            SectionLabel(
-                text = "Next up",
+        // The rewind about to be applied, stated before it happens rather than
+        // discovered afterwards.
+        state.resumeReadout.takeIf { it.isNotEmpty() && !playerState.isPlaying }?.let {
+            Mono(
+                text = it,
+                style = BackbeeType.monoSmall,
+                color = colors.accentSecondary,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = Dimens.gap),
+                    .padding(top = 4.dp),
+                textAlign = TextAlign.Center,
             )
+        }
+
+        Spacer(Modifier.height(Dimens.space4))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(Dimens.gap)) {
+            TransportKey("−10s", Modifier.weight(1f)) { player.skipBack() }
+            TransportKey("+30s", Modifier.weight(1f)) { player.skipForward() }
+            TransportKey(
+                "${ArchiveProgress.formatSpeed(state.show?.speed ?: 1f)}×",
+                Modifier.weight(1f),
+            ) { player.next() }
+        }
+
+        if (playingThis && playerState.durationMs > 0) {
+            Mono(
+                text = "${ArchiveProgress.formatClock(playerState.positionSeconds)}   " +
+                    "−${ArchiveProgress.formatClock(playerState.remainingMs / 1000)}",
+                style = BackbeeType.mono,
+                color = colors.textPrimary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Dimens.space3),
+                textAlign = TextAlign.Center,
+            )
+        }
+
+        Spacer(Modifier.height(Dimens.space8))
+
+        if (state.upNext.isNotEmpty()) {
+            Label("Next up")
+            Spacer(Modifier.height(Dimens.space2))
             state.upNext.forEach { row ->
-                UpNextRow(row = row, onClick = { player.playEpisode(row.id) })
-                Spacer(Modifier.height(8.dp))
+                UpNextRow(row) { player.playEpisode(row.id) }
+                Spacer(Modifier.height(Dimens.space2))
             }
         }
 
-        FilledTonalButton(
+        Spacer(Modifier.height(Dimens.space4))
+        BrutalButton(
             onClick = onOpenArchive,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = Dimens.gap)
-                .height(Dimens.touchTarget),
+            background = colors.bgPanel,
+            contentColor = colors.textPrimary,
+            shadow = Shadow.sm,
         ) {
-            Text("Open the archive")
+            Label("Open the archive", color = colors.textPrimary)
         }
+        Spacer(Modifier.height(Dimens.space8))
     }
 }
 
+/**
+ * The book spine: a filled block for what has been read, ticks for year
+ * boundaries, and a hard marker at the bookmark.
+ */
 @Composable
-private fun Transport(
-    isPlaying: Boolean,
-    onSkipBack: () -> Unit,
-    onSkipForward: () -> Unit,
-    onToggle: () -> Unit,
+private fun Spine(
+    fraction: Float,
+    yearMarks: List<Pair<Int, Float>>,
+    modifier: Modifier = Modifier,
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Dimens.gutter),
-    ) {
-        IconButton(onClick = onSkipBack, modifier = Modifier.size(Dimens.touchTarget)) {
-            Icon(
-                Icons.Filled.Replay10,
-                contentDescription = "Skip back",
-                modifier = Modifier.size(40.dp),
-            )
-        }
-
-        // The one control that has to be hittable without looking.
+    val colors = backbeeColors
+    Column(modifier) {
         Box(
-            modifier = Modifier
-                .size(Dimens.giantButton)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary)
-                .clickable(onClick = onToggle),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                contentDescription = if (isPlaying) "Pause" else "Play",
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(76.dp),
-            )
-        }
-
-        IconButton(onClick = onSkipForward, modifier = Modifier.size(Dimens.touchTarget)) {
-            Icon(
-                Icons.Filled.Forward30,
-                contentDescription = "Skip forward",
-                modifier = Modifier.size(40.dp),
-            )
-        }
-    }
-}
-
-private val SPEEDS = listOf(1.0f, 1.2f, 1.4f, 1.6f, 1.8f, 2.0f)
-
-@Composable
-private fun SpeedRow(speed: Float, onSetSpeed: (Float) -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        SPEEDS.forEach { option ->
-            val selected = kotlin.math.abs(option - speed) < 0.01f
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                contentColor = if (selected) MaterialTheme.colorScheme.onPrimary
-                else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.clickable { onSetSpeed(option) },
-            ) {
-                Text(
-                    text = "${ArchiveProgress.formatSpeed(option)}×",
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                )
+            Modifier
+                .fillMaxWidth()
+                .height(36.dp)
+                .background(colors.bgPanel)
+                .border(Stroke.divider, colors.borderColor)
+                .drawBehind {
+                    val read = size.width * fraction.coerceIn(0f, 1f)
+                    drawRect(colors.accentPrimary, Offset.Zero, Size(read, size.height))
+                    yearMarks.forEach { (_, at) ->
+                        val x = size.width * at.coerceIn(0f, 1f)
+                        drawRect(colors.borderColor, Offset(x, 0f), Size(1.5f, size.height))
+                    }
+                    // The bookmark itself, heavier than the year ticks.
+                    drawRect(colors.accentSecondary, Offset(read - 2f, 0f), Size(4f, size.height))
+                },
+        )
+        if (yearMarks.size > 1) {
+            Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                Mono(yearMarks.first().first.toString(), style = BackbeeType.monoMicro, color = colors.textMuted)
+                Spacer(Modifier.weight(1f))
+                Mono(yearMarks.last().first.toString(), style = BackbeeType.monoMicro, color = colors.textMuted)
             }
         }
+    }
+}
+
+@Composable
+private fun TransportKey(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    BrutalButton(
+        onClick = onClick,
+        modifier = modifier,
+        background = backbeeColors.bgPanel,
+        contentColor = backbeeColors.textPrimary,
+        shadow = Shadow.sm,
+        minHeight = Dimens.touchTarget,
+    ) {
+        Mono(label, style = BackbeeType.mono, color = backbeeColors.textPrimary)
     }
 }
 
 @Composable
 private fun UpNextRow(row: EpisodeRow, onClick: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+    val colors = backbeeColors
+    BrutalPanel(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shadow = Shadow.sm,
+        borderWidth = Stroke.thin,
+        contentPadding = Dimens.space3,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Mono(
                 text = (row.episodeNumber ?: (row.orderIndex + 1)).toString(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(end = Dimens.gap),
+                style = BackbeeType.mono,
+                color = colors.accentPrimary,
+                modifier = Modifier.padding(end = Dimens.space3),
             )
             Column(Modifier.weight(1f)) {
                 Text(
                     text = row.title,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = BackbeeType.bodySmall,
+                    color = colors.textPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(
-                    // Download state is the whole reason this strip exists: it
-                    // answers "will the next hour work without signal?".
-                    text = if (row.isDownloaded) "Downloaded" else "Not downloaded yet",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Mono(
+                    // The one thing worth knowing here: will the next hour work
+                    // without signal?
+                    text = if (row.isDownloaded) "ON DEVICE" else "NOT DOWNLOADED",
+                    style = BackbeeType.monoMicro,
+                    color = if (row.isDownloaded) colors.accentFunctional else colors.textMuted,
                 )
             }
-            row.durationSeconds?.let {
-                Text(
-                    text = ArchiveProgress.formatDuration(it),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            if (row.isDownloaded) {
+                GlyphText(Glyph.DOWNLOADED, colors.accentFunctional, Modifier.size(20.dp))
             }
         }
     }

@@ -15,6 +15,8 @@ data class EpisodeSlot(
     /** On-disk size when downloaded, else the enclosure's advertised size, else an estimate. */
     val bytes: Long = 0,
     val hasEnclosure: Boolean = true,
+    /** Exempt from the played-cleanup sweep and from cap eviction. */
+    val keepAfterPlaying: Boolean = false,
 )
 
 data class DownloadConfig(
@@ -73,6 +75,11 @@ class DownloadPlanner(private val config: DownloadConfig) {
         for (slot in ordered) {
             if (!slot.downloaded || slot.episodeId in toDelete) continue
 
+            // An episode explicitly marked "keep" is never reclaimed, however
+            // long ago it was played and however tight the cap gets. That is the
+            // entire point of the flag.
+            if (slot.keepAfterPlaying) continue
+
             if (slot.played) {
                 val playedAt = slot.playedAtMillis
                 if (playedAt == null || nowMillis - playedAt >= config.deletePlayedAfterMillis) {
@@ -105,7 +112,10 @@ class DownloadPlanner(private val config: DownloadConfig) {
                 // sit further ahead than this one. Never evict to make room for
                 // something more distant than what we would be evicting.
                 val reclaimable = ordered
-                    .filter { it.downloaded && it.episodeId !in toDelete && it.orderIndex > slot.orderIndex }
+                    .filter {
+                        it.downloaded && !it.keepAfterPlaying &&
+                            it.episodeId !in toDelete && it.orderIndex > slot.orderIndex
+                    }
                     .sortedByDescending { it.orderIndex }
                 for (victim in reclaimable) {
                     if (heldBytes + size <= config.storageCapBytes) break

@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import java.io.File
 
@@ -26,7 +27,7 @@ class Converters {
         MarkEntity::class,
         DownloadEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -52,9 +53,23 @@ abstract class BackbeeDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Adds marks.keep_after_playing. A migration rather than a destructive
+         * rebuild because the database holds the one thing the app must never
+         * lose - every position in the archive.
+         */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE marks ADD COLUMN keep_after_playing INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
         fun build(context: Context): BackbeeDatabase =
             Room.databaseBuilder(context.applicationContext, BackbeeDatabase::class.java, NAME)
                 .addCallback(ENABLE_FOREIGN_KEYS)
+                .addMigrations(MIGRATION_1_2)
                 .build()
 
         fun fileFor(context: Context): File = context.getDatabasePath(NAME)
