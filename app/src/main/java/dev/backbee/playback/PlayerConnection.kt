@@ -18,12 +18,19 @@ import kotlinx.coroutines.launch
 data class PlayerState(
     val connected: Boolean = false,
     val isPlaying: Boolean = false,
+    val isBuffering: Boolean = false,
     val episodeId: Long? = null,
     val title: String? = null,
+    /** "Ep 512" - the archive position, set by [MediaItems.forEpisode]. */
+    val subtitle: String? = null,
+    val artworkUrl: String? = null,
     val positionMs: Long = 0,
     val durationMs: Long = 0,
     val speed: Float = 1f,
 ) {
+    /** Something is loaded, whether or not it is currently making sound. */
+    val hasEpisode: Boolean get() = episodeId != null
+
     val positionSeconds: Long get() = positionMs / 1000
     val durationSeconds: Long get() = durationMs / 1000
     val remainingMs: Long get() = (durationMs - positionMs).coerceAtLeast(0)
@@ -152,8 +159,11 @@ class PlayerConnection(
         _state.value = PlayerState(
             connected = true,
             isPlaying = controller.isPlaying,
+            isBuffering = controller.playbackState == Player.STATE_BUFFERING,
             episodeId = MediaItems.episodeIdOf(controller.currentMediaItem),
             title = controller.mediaMetadata.title?.toString(),
+            subtitle = controller.mediaMetadata.subtitle?.toString(),
+            artworkUrl = controller.mediaMetadata.artworkUri?.toString(),
             positionMs = controller.currentPosition.coerceAtLeast(0),
             durationMs = controller.duration.takeIf { it > 0 } ?: 0,
             speed = controller.playbackParameters.speed,

@@ -26,6 +26,7 @@ import dev.backbee.ui.components.Glyph
 import dev.backbee.ui.components.GlyphText
 import dev.backbee.ui.components.Label
 import dev.backbee.ui.components.Mono
+import dev.backbee.ui.components.NowPlayingBar
 import dev.backbee.ui.components.Readout
 import dev.backbee.ui.components.StatusChip
 import dev.backbee.ui.theme.BackbeeTheme
@@ -66,12 +67,32 @@ class ScreenshotTest {
     @Test
     fun `archive rows light`() = shoot("archive-rows-light", dark = false) { ArchiveRowStates() }
 
-    private fun shoot(name: String, dark: Boolean, content: @Composable () -> Unit) {
+    @Test
+    fun `now playing bar dark`() = shoot("now-playing-bar-dark", dark = true, animated = true) { NowPlayingStates() }
+
+    @Test
+    fun `now playing bar light`() = shoot("now-playing-bar-light", dark = false, animated = true) { NowPlayingStates() }
+
+    /**
+     * [animated] stops the test clock from being driven automatically. The
+     * visualiser runs an infinite animation, and with autoAdvance on the tree
+     * never reaches idle, so the capture would wait forever.
+     */
+    private fun shoot(
+        name: String,
+        dark: Boolean,
+        animated: Boolean = false,
+        content: @Composable () -> Unit,
+    ) {
+        if (animated) compose.mainClock.autoAdvance = false
         compose.setContent {
             BackbeeTheme(darkTheme = dark) {
                 Column(Modifier.fillMaxWidth().background(backbeeColors.bgPage)) { content() }
             }
         }
+        // Far enough into the cycle that the bars are at different heights
+        // rather than all at their starting value.
+        if (animated) compose.mainClock.advanceTimeBy(420)
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/$name.png")
     }
 }
@@ -139,6 +160,54 @@ private fun DesignSystemSheet() {
         Readout(
             listOf("QUEUE STALLED · 3 FAILED", "POSITION WRITES: LOCAL, UNAFFECTED."),
             tone = colors.accentAlert,
+        )
+    }
+}
+
+/**
+ * The persistent bar in each state it can be in. It sits at the bottom of every
+ * screen, so it has to survive a long title and read at a glance while walking.
+ */
+@Composable
+private fun NowPlayingStates() {
+    Column(
+        Modifier.padding(vertical = Dimens.space4),
+        verticalArrangement = Arrangement.spacedBy(Dimens.space4),
+    ) {
+        Label("Playing", modifier = Modifier.padding(horizontal = Dimens.gutter))
+        NowPlayingBar(
+            title = "A Very Normal Barn",
+            subtitle = "EP 247",
+            artworkUrl = null,
+            positionMs = 1_601_000,
+            durationMs = 4_680_000,
+            isPlaying = true,
+            isBuffering = false,
+            onOpen = {}, onTogglePlay = {}, onSkipBack = {},
+        )
+
+        Label("Paused", modifier = Modifier.padding(horizontal = Dimens.gutter))
+        NowPlayingBar(
+            title = "Two Hundred Fifty Riddles, and the Long Subtitle That Comes With Them",
+            subtitle = "EP 250",
+            artworkUrl = null,
+            positionMs = 240_000,
+            durationMs = 4_680_000,
+            isPlaying = false,
+            isBuffering = false,
+            onOpen = {}, onTogglePlay = {}, onSkipBack = {},
+        )
+
+        Label("Buffering", modifier = Modifier.padding(horizontal = Dimens.gutter))
+        NowPlayingBar(
+            title = "Sandwich Court",
+            subtitle = "EP 251",
+            artworkUrl = null,
+            positionMs = 0,
+            durationMs = 0,
+            isPlaying = false,
+            isBuffering = true,
+            onOpen = {}, onTogglePlay = {}, onSkipBack = {},
         )
     }
 }

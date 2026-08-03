@@ -33,12 +33,14 @@ import dev.backbee.playback.PlayerConnection
 import dev.backbee.playback.PlayerState
 import dev.backbee.ui.components.Artwork
 import dev.backbee.ui.components.BrutalButton
+import dev.backbee.ui.components.BrutalOutlineButton
 import dev.backbee.ui.components.BrutalPanel
 import dev.backbee.ui.components.EmptyState
 import dev.backbee.ui.components.Glyph
 import dev.backbee.ui.components.GlyphText
 import dev.backbee.ui.components.Label
 import dev.backbee.ui.components.Mono
+import dev.backbee.ui.components.Readout
 import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
 import dev.backbee.ui.theme.Shadow
@@ -80,7 +82,9 @@ fun NowScreen(
             action = { BrutalButton(onClick = onOpenShelf) { Label("Add a show", color = backbeeColors.onAccentPrimary) } },
         )
 
-        state.archiveComplete -> EmptyState(
+        // A finished archive still yields to the player: someone re-listening to
+        // an episode should not be shown a recap instead of what they started.
+        state.archiveComplete && state.nowPlaying == null -> EmptyState(
             title = "You finished the book.",
             body = "${state.show?.title} is complete. Take a look at how it went, " +
                 "then pick the next one off the shelf.",
@@ -92,8 +96,24 @@ fun NowScreen(
             },
         )
 
-        else -> SpineNow(state, playerState, player, onOpenArchive, modifier)
+        else -> SpineNow(
+            state = state,
+            playerState = playerState,
+            player = player,
+            onOpenArchive = onOpenArchive,
+            onOpenCompletion = onOpenCompletion,
+            onCycleSpeed = { viewModel.setSpeed(nextSpeed(state.show?.speed ?: 1f)) },
+            modifier = modifier,
+        )
     }
+}
+
+/** The speeds worth having on a one-tap key; wraps back to 1×. */
+private val SPEEDS = listOf(1.0f, 1.2f, 1.4f, 1.6f, 1.8f, 2.0f)
+
+private fun nextSpeed(current: Float): Float {
+    val index = SPEEDS.indexOfFirst { it > current + 0.01f }
+    return if (index == -1) SPEEDS.first() else SPEEDS[index]
 }
 
 @Composable
@@ -102,10 +122,15 @@ private fun SpineNow(
     playerState: PlayerState,
     player: PlayerConnection,
     onOpenArchive: () -> Unit,
+    onOpenCompletion: (Long) -> Unit,
+    onCycleSpeed: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = backbeeColors
-    val target = state.resumeTarget
+    // Whatever is loaded in the player, falling back to the bookmark. Reading
+    // the bookmark here instead is the bug that made playing episode 500 leave
+    // this screen describing episode 1.
+    val target = state.current
     val playingThis = playerState.episodeId != null && playerState.episodeId == target?.id
 
     Column(
@@ -179,6 +204,32 @@ private fun SpineNow(
             )
         }
 
+        // Playing off the bookmark is allowed, but it must never be silent: the
+        // bookmark has not moved, and from here auto-advance walks forward from
+        // wherever the player is, not from where the bookmark sits.
+        if (state.isDetour) {
+            val bookmark = state.resumeTarget
+            Spacer(Modifier.height(Dimens.space5))
+            Readout(
+                lines = listOf(
+                    "PLAYING OFF THE BOOKMARK",
+                    "BOOKMARK HOLDS AT EP ${bookmark?.episodeNumber ?: ((bookmark?.orderIndex ?: 0) + 1)}",
+                ),
+                tone = colors.onInverseAlert,
+            )
+            Spacer(Modifier.height(Dimens.space2))
+            BrutalOutlineButton(onClick = { bookmark?.let { player.playEpisode(it.id) } }) {
+                Mono("← BACK TO THE BOOKMARK", style = BackbeeType.monoSmall, color = colors.textPrimary)
+            }
+        }
+
+        if (state.archiveComplete) {
+            Spacer(Modifier.height(Dimens.space3))
+            BrutalOutlineButton(onClick = { state.show?.let { onOpenCompletion(it.id) } }) {
+                Mono("ARCHIVE COMPLETE · SEE THE RECAP", style = BackbeeType.monoSmall, color = colors.textPrimary)
+            }
+        }
+
         Spacer(Modifier.height(Dimens.space8))
 
         BrutalButton(
@@ -218,10 +269,13 @@ private fun SpineNow(
         Row(horizontalArrangement = Arrangement.spacedBy(Dimens.gap)) {
             TransportKey("−10s", Modifier.weight(1f)) { player.skipBack() }
             TransportKey("+30s", Modifier.weight(1f)) { player.skipForward() }
+            // Labelled with the speed, so it had better change the speed. It
+            // used to skip to the next episode, which is a bad surprise on a
+            // key you press without looking.
             TransportKey(
                 "${ArchiveProgress.formatSpeed(state.show?.speed ?: 1f)}×",
                 Modifier.weight(1f),
-            ) { player.next() }
+            ) { onCycleSpeed() }
         }
 
         if (playingThis && playerState.durationMs > 0) {

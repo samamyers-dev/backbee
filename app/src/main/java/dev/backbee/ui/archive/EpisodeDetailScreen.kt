@@ -1,6 +1,7 @@
 package dev.backbee.ui.archive
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -60,8 +61,16 @@ fun EpisodeDetailScreen(
             .padding(Dimens.gutter),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Mono("← ARCHIVE", style = BackbeeType.monoSmall, color = colors.textMuted,
-                modifier = Modifier.padding(end = Dimens.space3))
+            Mono(
+                text = "← ARCHIVE",
+                style = BackbeeType.monoSmall,
+                color = colors.textMuted,
+                // The hit area is the padding, not the glyphs: eight characters
+                // of 12sp mono is nowhere near a thumb.
+                modifier = Modifier
+                    .clickable(onClick = onBack)
+                    .padding(end = Dimens.space3, top = Dimens.space3, bottom = Dimens.space3),
+            )
             Spacer(Modifier.weight(1f))
             Mono("[EP ${row.episodeNumber ?: (row.orderIndex + 1)}]", style = BackbeeType.monoSmall, color = colors.textMuted)
         }

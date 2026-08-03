@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -32,6 +33,7 @@ import dev.backbee.ui.completion.CompletionScreen
 import dev.backbee.ui.completion.CompletionViewModel
 import dev.backbee.ui.components.BrutalDivider
 import dev.backbee.ui.components.Mono
+import dev.backbee.ui.components.NowPlayingBar
 import dev.backbee.ui.downloads.DownloadsScreen
 import dev.backbee.ui.downloads.DownloadsViewModel
 import dev.backbee.ui.now.NowScreen
@@ -73,6 +75,7 @@ fun BackbeeNavHost(
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+    val playerState by player.state.collectAsStateWithLifecycle()
     val colors = backbeeColors
 
     Column(modifier.fillMaxSize().background(colors.bgPage)) {
@@ -147,6 +150,31 @@ fun BackbeeNavHost(
                     )
                 }
             }
+        }
+
+        // Outside the NavHost on purpose: this is the one surface that has to
+        // survive every tab switch, so it cannot live inside a destination.
+        if (playerState.hasEpisode) {
+            BrutalDivider(thickness = Stroke.thick)
+            NowPlayingBar(
+                title = playerState.title.orEmpty(),
+                subtitle = playerState.subtitle,
+                artworkUrl = playerState.artworkUrl,
+                positionMs = playerState.positionMs,
+                durationMs = playerState.durationMs,
+                isPlaying = playerState.isPlaying,
+                isBuffering = playerState.isBuffering,
+                onOpen = {
+                    if (currentRoute != Routes.NOW) {
+                        navController.navigate(Routes.NOW) {
+                            popUpTo(Routes.NOW) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                },
+                onTogglePlay = player::togglePlayPause,
+                onSkipBack = player::skipBack,
+            )
         }
 
         BrutalDivider(thickness = Stroke.thick)
