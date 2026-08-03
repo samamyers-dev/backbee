@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cloud backup is not the durability story - the nightly VACUUM INTO checkpoint
+  to a Syncthing folder is. Downloaded audio is explicitly excluded so a restore
+  does not try to move tens of gigabytes.
+-->
+<full-backup-content>
+    <include domain="database" path="." />
+    <include domain="sharedpref" path="." />
+    <exclude domain="file" path="episodes/" />
+    <exclude domain="external" path="episodes/" />
+</full-backup-content>
