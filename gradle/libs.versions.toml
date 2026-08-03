@@ -19,7 +19,10 @@ junit = "4.13.2"
 truth = "1.4.4"
 robolectric = "4.14.1"
 androidxTestExt = "1.2.1"
-roborazzi = "1.70.0"
+# Pinned to the Kotlin 2.0.21 line. Newer Roborazzi releases are built with a
+# later Kotlin and their .kotlin_module metadata cannot be read by this
+# compiler; 1.48.0 is compiled against exactly the version used here.
+roborazzi = "1.48.0"
 
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
