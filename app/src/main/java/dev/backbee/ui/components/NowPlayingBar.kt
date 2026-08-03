@@ -178,16 +178,24 @@ private fun Visualizer(
     Canvas(modifier) { drawBars(bars, colors.accentPrimary) { levelFor(phase, it) } }
 }
 
-private const val FLAT_LEVEL = 0.14f
+/**
+ * Bars at rest, not bars switched off. Rendered any lower they read as a row of
+ * dots - which looks like something failing to load rather than like audio
+ * that is paused.
+ */
+private const val FLAT_LEVEL = 0.24f
 
 /**
  * The chip is a dark lens over the artwork in both themes rather than the
  * theme's inverse surface. The accent is ochre, which sits at 4.6:1 on espresso
  * and 1.9:1 on paper - flipping the backdrop with the theme would make the bars
  * disappear in dark mode exactly as it did to the readout text.
+ *
+ * Nearly opaque, because the artwork placeholder draws the show's initials and
+ * at 77% they showed through the bars as debris.
  */
-private val Scrim = Color(0xC42E2824)
-private val ScrimForeground = Color(0x8CF2EDE4)
+private val Scrim = Color(0xF02E2824)
+private val ScrimForeground = Color(0xB3F2EDE4)
 
 private fun DrawScope.drawBars(
     bars: Int,
