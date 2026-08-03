@@ -8,7 +8,9 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Not cancel-in-progress: a manual dispatch while a push build is running
+  # would kill the push build, and two dead runs look exactly like one slow one.
+  cancel-in-progress: false
 
 jobs:
   build:
