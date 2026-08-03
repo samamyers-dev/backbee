@@ -73,11 +73,12 @@ fun EpisodeRowItem(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Mono(
+            Text(
                 text = metaLine(row),
                 style = BackbeeType.monoSmall,
                 color = colors.textMuted,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 2.dp),
             )
             if (isPlaying) {
@@ -85,27 +86,31 @@ fun EpisodeRowItem(
             }
         }
 
-        // Fixed-width glyph column so rows do not reflow as state changes.
+        // Fixed-width, end-aligned glyph column so the right edge stays straight
+        // no matter how many glyphs a row carries.
         Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .padding(start = Dimens.space2)
-                .width(72.dp),
+                .width(56.dp),
         ) {
             if (row.isStarred) GlyphText(Glyph.STARRED, colors.accentPrimary)
+
+            // Exactly one state glyph. "Downloaded" and "untouched" are not two
+            // facts to stack up - a downloaded episode is by definition one you
+            // have not played yet, and showing both just adds noise to a list
+            // meant to be read while scrolling past a thousand rows.
             when {
+                row.isPlayed -> GlyphText(Glyph.PLAYED, colors.textMuted)
+                isPlaying -> GlyphText(Glyph.PLAYING, colors.accentPrimary)
+                row.downloadState == DownloadState.FAILED ->
+                    GlyphText(Glyph.FAILED, colors.accentAlert)
+                row.progressFraction != null -> GlyphText(Glyph.PLAYING, colors.accentSecondary)
                 row.isDownloaded -> GlyphText(Glyph.DOWNLOADED, colors.accentFunctional)
                 row.downloadState == DownloadState.RUNNING ||
                     row.downloadState == DownloadState.QUEUED ->
                     GlyphText(Glyph.DOWNLOADED, colors.textMuted)
-                row.downloadState == DownloadState.FAILED ->
-                    GlyphText(Glyph.FAILED, colors.accentAlert)
-            }
-            when {
-                row.isPlayed -> GlyphText(Glyph.PLAYED, colors.textMuted)
-                isPlaying -> GlyphText(Glyph.PLAYING, colors.accentPrimary)
-                row.progressFraction != null -> GlyphText(Glyph.PLAYING, colors.accentSecondary)
                 else -> GlyphText(Glyph.UNTOUCHED, colors.textMuted)
             }
         }
@@ -115,6 +120,7 @@ fun EpisodeRowItem(
 /** `14 MAR 2021 · 26:41 / 1H 18M` - date, then position within duration. */
 private fun metaLine(row: EpisodeRow): String {
     val parts = mutableListOf<String>()
+    if (row.isKept) parts += "KEPT"
     row.pubDate?.let { parts += DATE.format(Date(it)).uppercase() }
 
     val duration = row.durationSeconds
@@ -125,7 +131,6 @@ private fun metaLine(row: EpisodeRow): String {
             parts += "${ArchiveProgress.formatClock(position)} / ${ArchiveProgress.formatDuration(duration)}"
         else -> parts += ArchiveProgress.formatDuration(duration)
     }
-    if (row.isKept) parts += "KEPT"
     return parts.joinToString("  ·  ")
 }
 

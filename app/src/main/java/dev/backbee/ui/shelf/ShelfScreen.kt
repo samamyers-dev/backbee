@@ -124,7 +124,7 @@ fun ShelfScreen(
                     Spacer(Modifier.height(Dimens.space2))
                     Readout(
                         lines = addState.probeLines,
-                        tone = if (addState.probeUsable) colors.accentFunctional else colors.accentAlert,
+                        tone = if (addState.probeUsable) colors.onInverseFunctional else colors.onInverseAlert,
                     )
                     TextButton(onClick = viewModel::dismissMessage) {
                         Mono("DISMISS", style = BackbeeType.monoSmall, color = colors.textMuted)

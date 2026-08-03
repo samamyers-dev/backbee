@@ -98,7 +98,7 @@ fun DownloadsScreen(viewModel: DownloadsViewModel, modifier: Modifier = Modifier
                             "POSITION WRITES: LOCAL, UNAFFECTED.",
                             "RETRY HAPPENS AUTOMATICALLY ON RECONNECT.",
                         ),
-                        tone = colors.accentAlert,
+                        tone = colors.onInverseAlert,
                     )
                     BrutalOutlineButton(
                         onClick = viewModel::retryFailed,

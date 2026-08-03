@@ -197,7 +197,7 @@ fun Mono(
 fun Readout(
     lines: List<String>,
     modifier: Modifier = Modifier,
-    tone: Color = backbeeColors.accentFunctional,
+    tone: Color = backbeeColors.onInverseFunctional,
 ) {
     if (lines.isEmpty()) return
     Column(

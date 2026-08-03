@@ -67,6 +67,14 @@ data class BackbeeColors(
     val onAccentPrimary: Color = Espresso,
     val onAccentSecondary: Color = Paper,
     val onAccentAlert: Color = Paper,
+    /**
+     * Readout text sits on [bgInverse], which flips with the theme, so the flat
+     * accents cannot serve both modes - sage on espresso is 3.1:1 and crimson
+     * on espresso is 1.88:1, well under the 4.5:1 needed for body text. These
+     * are tuned per mode and all clear 6:1.
+     */
+    val onInverseFunctional: Color = Color(0xFF9CBFA8),
+    val onInverseAlert: Color = Color(0xFFE09383),
 )
 
 private val LightColors = BackbeeColors(
@@ -79,6 +87,9 @@ private val LightColors = BackbeeColors(
     borderColor = Espresso,
     shadowColor = Espresso,
     ditherLine = Color(0x0D2E2824),
+    // Panel is espresso here, so the readout text must be light.
+    onInverseFunctional = Color(0xFF9CBFA8),
+    onInverseAlert = Color(0xFFE09383),
 )
 
 private val DarkColors = BackbeeColors(
@@ -91,6 +102,9 @@ private val DarkColors = BackbeeColors(
     borderColor = Paper,
     shadowColor = Paper,
     ditherLine = Color(0x08F2EDE4),
+    // Panel is paper here, so the readout text must be dark.
+    onInverseFunctional = Color(0xFF3A5442),
+    onInverseAlert = Color(0xFF7A2E22),
 )
 
 val LocalBackbeeColors = staticCompositionLocalOf { DarkColors }
