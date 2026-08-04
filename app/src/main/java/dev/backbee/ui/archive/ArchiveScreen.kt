@@ -28,6 +28,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -65,6 +66,7 @@ fun ArchiveScreen(
     val playerState by player.state.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val keyboard = LocalSoftwareKeyboardController.current
 
     var jumpText by remember { mutableStateOf("") }
     var landed by remember { mutableStateOf(false) }
@@ -100,16 +102,21 @@ fun ArchiveScreen(
                 )
                 OutlinedTextField(
                     value = jumpText,
-                    onValueChange = { jumpText = it },
+                    // Jumps as you type, like the search field beside it. Hiding
+                    // the jump behind the keyboard's Go key made the box look
+                    // broken: you typed a number and the list sat there.
+                    onValueChange = { entered ->
+                        jumpText = entered.filter { it.isDigit() }.take(6)
+                        jumpText.toIntOrNull()
+                            ?.let(viewModel::indexForEpisodeNumber)
+                            ?.let { scope.launch { listState.scrollToItem(it) } }
+                    },
                     placeholder = { Mono("EP #", style = BackbeeType.monoSmall, color = colors.textMuted) },
                     singleLine = true,
                     textStyle = BackbeeType.mono,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Go),
-                    keyboardActions = KeyboardActions(onGo = {
-                        jumpText.trim().toIntOrNull()
-                            ?.let(viewModel::indexForEpisodeNumber)
-                            ?.let { scope.launch { listState.animateScrollToItem(it) } }
-                    }),
+                    // Go now only puts the keyboard away; the jump already happened.
+                    keyboardActions = KeyboardActions(onGo = { keyboard?.hide() }),
                     modifier = Modifier.width(104.dp),
                 )
             }

@@ -28,6 +28,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.backbee.core.playback.ArchiveProgress
@@ -72,7 +77,7 @@ fun NowPlayingBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onOpen)
+                .clickable(onClickLabel = "Open Now", onClick = onOpen)
                 .padding(horizontal = Dimens.space3, vertical = Dimens.space2),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Dimens.space3),
@@ -93,7 +98,7 @@ fun NowPlayingBar(
                         else -> subtitle?.uppercase().orEmpty()
                     },
                     style = BackbeeType.monoMicro,
-                    color = if (isBuffering) colors.accentSecondary else colors.accentPrimary,
+                    color = if (isBuffering) colors.textSecondary else colors.textAccent,
                     maxLines = 1,
                 )
                 Text(
@@ -112,9 +117,13 @@ fun NowPlayingBar(
                 )
             }
 
-            BarKey("−10", onClick = onSkipBack)
+            BarKey("−10", contentDescription = "Skip back ten seconds", onClick = onSkipBack)
             BarKey(
                 label = if (isPlaying) "❚❚" else "▶",
+                // The glyph is a typographic stand-in for an icon; read aloud it
+                // is a pair of box-drawing characters, so the label has to be
+                // spelled out rather than left to the text.
+                contentDescription = if (isPlaying) "Pause" else "Play",
                 onClick = onTogglePlay,
                 background = colors.accentPrimary,
                 contentColor = colors.onAccentPrimary,
@@ -130,6 +139,7 @@ fun NowPlayingBar(
 @Composable
 private fun BarKey(
     label: String,
+    contentDescription: String,
     onClick: () -> Unit,
     background: Color = backbeeColors.bgPage,
     contentColor: Color = backbeeColors.textPrimary,
@@ -139,10 +149,14 @@ private fun BarKey(
             .size(48.dp)
             .background(background)
             .border(Stroke.divider, backbeeColors.borderColor)
-            .clickable(onClick = onClick),
+            .clickable(onClickLabel = contentDescription, onClick = onClick)
+            .semantics {
+                this.contentDescription = contentDescription
+                role = Role.Button
+            },
         contentAlignment = Alignment.Center,
     ) {
-        Mono(label, style = BackbeeType.monoSmall, color = contentColor)
+        Mono(label, style = BackbeeType.monoSmall, color = contentColor, modifier = Modifier.clearAndSetSemantics {})
     }
 }
 

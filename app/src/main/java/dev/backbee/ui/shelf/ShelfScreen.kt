@@ -41,7 +41,7 @@ import dev.backbee.ui.theme.Stroke
 import dev.backbee.ui.theme.backbeeColors
 
 /**
- * The shelf: the active show on top, everything else waiting with its bookmark
+ * The shelf: the active show on top, everything else waiting with its place
  * frozen exactly where it was left.
  */
 @Composable
@@ -62,12 +62,15 @@ fun ShelfScreen(
     ) {
         item {
             Row(Modifier.fillMaxWidth()) {
-                Label("[Shelf] ${entries.size} shows", color = colors.textPrimary)
+                Label(
+                    "[Shelf] ${entries.size} ${if (entries.size == 1) "show" else "shows"}",
+                    color = colors.textPrimary,
+                )
                 Spacer(Modifier.weight(1f))
                 Mono(
                     "${entries.count { it.show.isActive }} ACTIVE",
                     style = BackbeeType.monoSmall,
-                    color = colors.accentPrimary,
+                    color = colors.textAccent,
                 )
             }
         }
@@ -199,7 +202,7 @@ fun ShelfScreen(
                                 modifier = Modifier.padding(top = 4.dp),
                             )
                             Mono(
-                                entry.bookmarkLine(),
+                                entry.placeLine(),
                                 style = BackbeeType.monoSmall,
                                 color = colors.textMuted,
                             )
@@ -234,7 +237,7 @@ fun ShelfScreen(
                             onClick = { pendingRemoval = entry.show.id },
                             minHeight = 44.dp,
                         ) {
-                            Mono("REMOVE", style = BackbeeType.monoSmall, color = colors.accentAlert)
+                            Mono("REMOVE", style = BackbeeType.monoSmall, color = colors.textAlert)
                         }
                     }
                 }
@@ -255,7 +258,7 @@ fun ShelfScreen(
             },
             confirmButton = {
                 TextButton(onClick = { viewModel.removeShow(showId); pendingRemoval = null }) {
-                    Mono("REMOVE", style = BackbeeType.monoSmall, color = colors.accentAlert)
+                    Mono("REMOVE", style = BackbeeType.monoSmall, color = colors.textAlert)
                 }
             },
             dismissButton = {

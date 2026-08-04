@@ -169,7 +169,7 @@ class ShowRepository(
         val existing = episodeDao.identityMap(showId).associateBy { it.guid }
 
         // Renumbering an archive somebody is 300 episodes into would move their
-        // bookmark, so it is only safe while nothing has been played. Until then
+        // place in the archive, so it is only safe while nothing has been played. Until then
         // - which covers recovering a truncated first import - the order is
         // rebuilt from publication date. After that, new episodes append to the
         // end, which is what "a still-running show" should do anyway.

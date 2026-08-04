@@ -27,6 +27,12 @@ class PositionWriter(
     private val repository: PlaybackRepository,
     private val onEpisodeFinished: suspend (episodeId: Long) -> Unit,
     private val onFlushed: () -> Unit = {},
+    /**
+     * Called whenever the player's current item changes. The download planner
+     * reads this to know which file it must not reclaim, so it has to be written
+     * down rather than merely known in memory.
+     */
+    private val onLoadedEpisodeChanged: suspend (episodeId: Long?) -> Unit = {},
 ) : Player.Listener {
 
     private var player: Player? = null
@@ -35,6 +41,7 @@ class PositionWriter(
     fun attach(player: Player) {
         this.player = player
         player.addListener(this)
+        recordLoadedEpisode()
     }
 
     fun detach() {
@@ -87,6 +94,7 @@ class PositionWriter(
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         recordMeasuredDuration()
+        recordLoadedEpisode()
     }
 
     override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
@@ -119,6 +127,14 @@ class PositionWriter(
                 repository.markPlayed(episodeId, positionSeconds)
                 onEpisodeFinished(episodeId)
             }.onFailure { Log.e(TAG, "Failed to mark $episodeId played", it) }
+        }
+    }
+
+    private fun recordLoadedEpisode() {
+        val episodeId = player?.currentMediaItem?.let { MediaItems.episodeIdOf(it) }
+        scope.launch {
+            runCatching { onLoadedEpisodeChanged(episodeId) }
+                .onFailure { Log.w(TAG, "Failed to record the loaded episode", it) }
         }
     }
 

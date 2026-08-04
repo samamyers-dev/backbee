@@ -33,7 +33,7 @@ class DownloadRepository(
     suspend fun state(episodeId: Long): DownloadEntity? = downloadDao.get(episodeId)
 
     /** Builds the plan for a show without acting on it. The worker carries it out. */
-    suspend fun planFor(showId: Long, currentOrderIndex: Int): DownloadPlan {
+    suspend fun planFor(showId: Long, currentOrderIndex: Int, loadedEpisodeId: Long? = null): DownloadPlan {
         val config = settings.current().let {
             DownloadConfig(
                 downloadAhead = it.downloadAhead,
@@ -55,7 +55,8 @@ class DownloadRepository(
             )
         }
 
-        return DownloadPlanner(config).plan(slots, currentOrderIndex, System.currentTimeMillis())
+        return DownloadPlanner(config)
+            .plan(slots, currentOrderIndex, System.currentTimeMillis(), loadedEpisodeId)
     }
 
     /**

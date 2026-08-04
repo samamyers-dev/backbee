@@ -75,6 +75,18 @@ data class BackbeeColors(
      */
     val onInverseFunctional: Color = Color(0xFF9CBFA8),
     val onInverseAlert: Color = Color(0xFFE09383),
+    /**
+     * The same problem one surface out: the accents above are mixed for fills,
+     * where only the 3:1 graphical threshold applies, and ochre on paper is
+     * 2.26:1 - so the episode numbers, the bar's "EP n" and every other accent
+     * *word* failed at both text sizes. Anything set in an accent on [bgPage] or
+     * [bgPanel] uses these instead, tuned per mode to clear 4.5:1 while holding
+     * the hue. Fills keep using the accents.
+     */
+    val textAccent: Color = Ochre,
+    val textFunctional: Color = Sage,
+    val textSecondary: Color = Terracotta,
+    val textAlert: Color = Crimson,
 )
 
 private val LightColors = BackbeeColors(
@@ -90,6 +102,11 @@ private val LightColors = BackbeeColors(
     // Panel is espresso here, so the readout text must be light.
     onInverseFunctional = Color(0xFF9CBFA8),
     onInverseAlert = Color(0xFFE09383),
+    // Darkened against paper: 4.6:1, 4.6:1, 4.6:1, 6.6:1.
+    textAccent = Color(0xFF8C622C),
+    textFunctional = Color(0xFF55715E),
+    textSecondary = Color(0xFFA6523B),
+    textAlert = Crimson,
 )
 
 private val DarkColors = BackbeeColors(
@@ -105,6 +122,11 @@ private val DarkColors = BackbeeColors(
     // Panel is paper here, so the readout text must be dark.
     onInverseFunctional = Color(0xFF3A5442),
     onInverseAlert = Color(0xFF7A2E22),
+    // Lifted against basalt: ochre already clears 6.8:1, the rest did not.
+    textAccent = Ochre,
+    textFunctional = Color(0xFF678971),
+    textSecondary = Color(0xFFC06950),
+    textAlert = Color(0xFFCB6250),
 )
 
 val LocalBackbeeColors = staticCompositionLocalOf { DarkColors }

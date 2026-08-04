@@ -54,10 +54,10 @@ fun CompletionScreen(
     ) {
         item {
             Column {
-                Label("[Archive complete]", color = colors.accentPrimary)
+                Label("[Archive complete]", color = colors.textAccent)
                 Spacer(Modifier.height(Dimens.space3))
                 Text("You finished", style = BackbeeType.displayMedium, color = colors.textPrimary)
-                Text("the book.", style = BackbeeType.displayMedium, color = colors.accentPrimary)
+                Text("the book.", style = BackbeeType.displayMedium, color = colors.textAccent)
                 Spacer(Modifier.height(Dimens.space4))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Artwork(state.show?.artworkUrl, state.show?.title, size = 72.dp)
@@ -104,7 +104,7 @@ fun CompletionScreen(
             item { Label("Starred — ${state.starred.size} episodes") }
             items(state.starred, key = { it.id }) { row ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                    Mono(Glyph.STARRED, style = BackbeeType.monoSmall, color = colors.accentPrimary)
+                    Mono(Glyph.STARRED, style = BackbeeType.monoSmall, color = colors.textAccent)
                     Text(
                         " ${row.episodeNumber ?: (row.orderIndex + 1)} · ${row.title}",
                         style = BackbeeType.bodySmall,
@@ -157,7 +157,7 @@ fun CompletionScreen(
 @Composable
 private fun StatBlock(value: String, label: String, modifier: Modifier = Modifier) {
     BrutalPanel(modifier, shadow = Shadow.sm) {
-        Text(value, style = BackbeeType.displaySmall, color = backbeeColors.accentPrimary)
+        Text(value, style = BackbeeType.displaySmall, color = backbeeColors.textAccent)
         Mono(label, style = BackbeeType.monoMicro, color = backbeeColors.textMuted)
     }
 }

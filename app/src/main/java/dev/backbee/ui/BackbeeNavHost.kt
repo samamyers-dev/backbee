@@ -14,6 +14,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -200,7 +205,11 @@ fun BackbeeNavHost(
                             }
                         }
                         .background(if (selected) colors.accentPrimary else colors.bgPanel)
-                        .padding(vertical = 18.dp),
+                        .padding(vertical = 18.dp)
+                        .semantics(mergeDescendants = true) {
+                            role = Role.Tab
+                            this.selected = selected
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     Mono(
@@ -212,11 +221,17 @@ fun BackbeeNavHost(
             }
             // Settings and Downloads are rare surfaces, so they get a narrow
             // slot rather than a tab of their own.
+            // Both slots are a bare glyph, which a screen reader either skips or
+            // reads as punctuation, so each carries its name instead.
             Box(
                 modifier = Modifier
                     .weight(0.6f)
                     .clickable { navController.navigate(Routes.DOWNLOADS) { launchSingleTop = true } }
-                    .padding(vertical = 18.dp),
+                    .padding(vertical = 18.dp)
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = "Downloads"
+                        role = Role.Tab
+                    },
                 contentAlignment = Alignment.Center,
             ) {
                 Mono("▼", style = BackbeeType.label, color = backbeeColors.textMuted)
@@ -225,7 +240,11 @@ fun BackbeeNavHost(
                 modifier = Modifier
                     .weight(0.6f)
                     .clickable { navController.navigate(Routes.SETTINGS) { launchSingleTop = true } }
-                    .padding(vertical = 18.dp),
+                    .padding(vertical = 18.dp)
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = "Settings"
+                        role = Role.Tab
+                    },
                 contentAlignment = Alignment.Center,
             ) {
                 Mono("⚙", style = BackbeeType.label, color = backbeeColors.textMuted)

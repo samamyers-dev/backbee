@@ -26,7 +26,7 @@ object WidgetPlaybackCommands {
             controller.isPlaying -> controller.pause()
             controller.mediaItemCount > 0 -> controller.play()
             else -> {
-                // Cold start from the home screen: ask for the bookmark and let
+                // Cold start from the home screen: ask for where you left off and let
                 // the service work out which episode that is.
                 controller.setMediaItem(
                     MediaItem.Builder().setMediaId(AutoLibraryCallback.RESUME).build()

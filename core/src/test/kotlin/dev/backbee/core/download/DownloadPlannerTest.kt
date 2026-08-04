@@ -184,6 +184,35 @@ class DownloadPlannerTest {
     }
 
     @Test
+    fun `the loaded episode is never reclaimed however far the window moves`() {
+        val config = DownloadConfig(downloadAhead = 10, storageCapBytes = 100L * 1024 * mb)
+
+        // What the take-back does: 196 episodes go back to unplayed, so the
+        // window jumps to the top of the archive while the player is still on
+        // 196 - which is exactly when its file used to be deleted underneath it.
+        val slots = archive(size = 400, downloaded = setOf(196, 197, 198))
+        val plan = DownloadPlanner(config)
+            .plan(slots, currentOrderIndex = 0, nowMillis = now, loadedEpisodeId = 196L)
+
+        assertThat(plan.toDelete).doesNotContain(196L)
+        assertThat(plan.toDelete).containsAtLeast(197L, 198L)
+    }
+
+    @Test
+    fun `the cap evicts around the loaded episode rather than through it`() {
+        // Room for two episodes. 30 is loaded and ahead of the window, so the
+        // cap has to fall on 31 instead.
+        val config = DownloadConfig(downloadAhead = 1, storageCapBytes = 100 * mb)
+        val slots = archive(size = 50, downloaded = setOf(30, 31), bytesEach = 50 * mb)
+
+        val plan = DownloadPlanner(config)
+            .plan(slots, currentOrderIndex = 10, nowMillis = now, loadedEpisodeId = 30L)
+
+        assertThat(plan.toDelete).doesNotContain(30L)
+        assertThat(plan.toDelete).contains(31L)
+    }
+
+    @Test
     fun `the plan is stable when run twice against its own outcome`() {
         val config = DownloadConfig(downloadAhead = 5, storageCapBytes = 100L * 1024 * mb)
         val first = DownloadPlanner(config).plan(archive(size = 50), currentOrderIndex = 10, nowMillis = now)
