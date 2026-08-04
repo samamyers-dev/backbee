@@ -51,10 +51,18 @@ data class DownloadPlan(
  */
 class DownloadPlanner(private val config: DownloadConfig) {
 
+    /**
+     * @param loadedEpisodeId the episode the player currently holds, if any. It is
+     *   never reclaimed. Marking a run of episodes played or unplayed moves the
+     *   position the window is built from, which can leave the thing making sound
+     *   outside it - and deleting the file out from under a running player is a
+     *   failure the user hears.
+     */
     fun plan(
         episodes: List<EpisodeSlot>,
         currentOrderIndex: Int,
         nowMillis: Long,
+        loadedEpisodeId: Long? = null,
     ): DownloadPlan {
         val ordered = episodes.sortedBy { it.orderIndex }
         val reasons = mutableMapOf<Long, String>()
@@ -79,6 +87,9 @@ class DownloadPlanner(private val config: DownloadConfig) {
             // long ago it was played and however tight the cap gets. That is the
             // entire point of the flag.
             if (slot.keepAfterPlaying) continue
+
+            // Neither is whatever is loaded in the player right now.
+            if (slot.episodeId == loadedEpisodeId) continue
 
             if (slot.played) {
                 val playedAt = slot.playedAtMillis
@@ -113,7 +124,7 @@ class DownloadPlanner(private val config: DownloadConfig) {
                 // something more distant than what we would be evicting.
                 val reclaimable = ordered
                     .filter {
-                        it.downloaded && !it.keepAfterPlaying &&
+                        it.downloaded && !it.keepAfterPlaying && it.episodeId != loadedEpisodeId &&
                             it.episodeId !in toDelete && it.orderIndex > slot.orderIndex
                     }
                     .sortedByDescending { it.orderIndex }

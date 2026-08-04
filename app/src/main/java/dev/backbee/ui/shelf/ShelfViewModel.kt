@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** A show plus the bookmark line the shelf shows under it. */
+/** A show plus the line the shelf shows under it: where you left off. */
 data class ShelfEntry(
     val show: ShowEntity,
     val progress: ShowProgress?,
@@ -31,10 +31,13 @@ data class ShelfEntry(
     val isComplete: Boolean get() = show.completedAt != null
 
     /**
-     * "PAUSED AT EP 89 / 412 · 8 MONTHS AGO". The elapsed time matters as much
-     * as the position: it is what tells you how cold the show has gone.
+     * "AT EP 89 / 412 · 8 MONTHS AGO". The elapsed time matters as much as the
+     * position: it is what tells you how cold the show has gone.
+     *
+     * Not "paused at": this line is about your place in the archive, and the
+     * shelf will happily show it for the show that is playing right now.
      */
-    fun bookmarkLine(nowMillis: Long = System.currentTimeMillis()): String {
+    fun placeLine(nowMillis: Long = System.currentTimeMillis()): String {
         val progress = progress ?: return "NOT LOADED YET"
         if (progress.totalEpisodes == 0) return "NO EPISODES"
 
@@ -42,7 +45,7 @@ data class ShelfEntry(
         return when {
             isComplete -> "COMPLETED · ${progress.totalEpisodes} EPS"
             progress.playedEpisodes == 0 -> "NOT STARTED · ${progress.totalEpisodes} EPS"
-            else -> "PAUSED AT EP ${progress.playedEpisodes + 1} / ${progress.totalEpisodes}$age"
+            else -> "AT EP ${progress.playedEpisodes + 1} / ${progress.totalEpisodes}$age"
         }
     }
 }

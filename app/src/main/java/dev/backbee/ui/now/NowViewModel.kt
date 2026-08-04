@@ -42,6 +42,12 @@ data class NowUiState(
     /** "SAVED 26:41 → RESUME FROM 26:11 · TIER −30S", or empty when there is nothing to say. */
     val resumeReadout: String = "",
     val archiveComplete: Boolean = false,
+    /**
+     * Where the player is along the spine, 0f..1f, when that is somewhere other
+     * than your place. Null the rest of the time, when the two coincide and one
+     * marker says everything.
+     */
+    val detourFraction: Float? = null,
 ) {
     val hasShow: Boolean get() = show != null
 
@@ -159,17 +165,30 @@ class NowViewModel(
                 showProgress.totalEpisodes > 0 && showProgress.playedEpisodes >= showProgress.totalEpisodes,
             progress = showProgress?.let {
                 ArchiveProgress(
+                    // Your place, not the player's. The strip's other two figures
+                    // - the percentage and the hours left - are both counted from
+                    // where you left off, so taking the position from the player
+                    // made one line disagree with itself the moment you played
+                    // something out of sequence. Where the player is gets its own
+                    // marker on the spine instead.
+                    //
                     // The strip reads "Ep 312 of 1,247", so the current episode
                     // counts as the one being worked on, not one already done.
-                    currentPosition = ((playing ?: target)?.orderIndex?.plus(1)) ?: it.totalEpisodes,
+                    currentPosition = (target?.orderIndex?.plus(1)) ?: it.totalEpisodes,
                     totalEpisodes = it.totalEpisodes,
                     remainingSeconds = it.remainingSeconds,
                     totalSeconds = it.totalSeconds,
                     speed = show?.speed ?: 1f,
                 )
             },
+            detourFraction = detourFraction(playing, target, showProgress?.totalEpisodes ?: 0),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NowUiState())
+
+    private fun detourFraction(playing: EpisodeRow?, target: EpisodeRow?, totalEpisodes: Int): Float? {
+        if (playing == null || target == null || playing.id == target.id || totalEpisodes <= 0) return null
+        return (playing.orderIndex.toFloat() / totalEpisodes).coerceIn(0f, 1f)
+    }
 
     /**
      * The loaded episode, held across the gaps in the connection.

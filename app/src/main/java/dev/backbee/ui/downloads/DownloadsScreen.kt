@@ -49,14 +49,14 @@ fun DownloadsScreen(viewModel: DownloadsViewModel, modifier: Modifier = Modifier
                     Mono(
                         "${mb(state.usedBytes)} / ${gb(state.capBytes)}",
                         style = BackbeeType.mono,
-                        color = if (state.capReached) colors.accentAlert else colors.textPrimary,
+                        color = if (state.capReached) colors.textAlert else colors.textPrimary,
                     )
                 }
                 Spacer(Modifier.height(Dimens.space2))
                 BrutalProgress(
                     fraction = state.fractionUsed,
                     height = 14.dp,
-                    color = if (state.capReached) colors.accentAlert else colors.accentPrimary,
+                    color = if (state.capReached) colors.textAlert else colors.textAccent,
                 )
                 if (state.capReached) {
                     Spacer(Modifier.height(Dimens.space2))
@@ -64,7 +64,7 @@ fun DownloadsScreen(viewModel: DownloadsViewModel, modifier: Modifier = Modifier
                         "CAP REACHED. AHEAD-QUEUE TRIMMED. " +
                             "RAISE THE CAP OR SHORTEN THE DELETE-PLAYED WINDOW.",
                         style = BackbeeType.monoSmall,
-                        color = colors.accentAlert,
+                        color = colors.textAlert,
                     )
                 }
                 Row(
@@ -108,7 +108,7 @@ fun DownloadsScreen(viewModel: DownloadsViewModel, modifier: Modifier = Modifier
                     }
                 }
             }
-            items(state.failed, key = { "f${it.id}" }) { row -> DownloadRow(row, "FAILED", colors.accentAlert) }
+            items(state.failed, key = { "f${it.id}" }) { row -> DownloadRow(row, "FAILED", colors.textAlert) }
         }
 
         if (state.inProgress.isNotEmpty()) {
@@ -140,7 +140,7 @@ fun DownloadsScreen(viewModel: DownloadsViewModel, modifier: Modifier = Modifier
             DownloadRow(
                 row = row,
                 status = if (row.isKept) "KEPT" else mb(row.bytesDone ?: 0),
-                color = if (row.isKept) colors.accentPrimary else colors.accentFunctional,
+                color = if (row.isKept) colors.textAccent else colors.textFunctional,
             )
         }
     }

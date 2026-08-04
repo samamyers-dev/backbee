@@ -18,7 +18,7 @@ import kotlinx.coroutines.guava.future
  * What Android Auto shows.
  *
  * Three entries, because a car screen at arm's length is not a place to browse
- * 1,247 episodes: Resume (the bookmark), Next up (the following few), and
+ * 1,247 episodes: Resume (where you left off), Next up (the following few), and
  * Starred. Everything else lives on the phone.
  *
  * Note for a sideloaded build: Auto only lists media apps installed from Play by
@@ -131,7 +131,7 @@ class AutoLibraryCallback(
 
         val plan = when {
             coordinator == null -> null
-            // RESUME as a media id means "wherever the bookmark is", which is
+            // RESUME as a media id means "wherever you left off", which is
             // what a browsable "Resume" node resolves to when played directly.
             requestedId == null || requestedId == RESUME -> coordinator.planResume()
             else -> requestedId.toLongOrNull()?.let { coordinator.planEpisode(it) } ?: coordinator.planResume()

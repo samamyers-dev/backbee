@@ -11,14 +11,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.backbee.core.playback.ArchiveProgress
@@ -46,19 +54,31 @@ fun EpisodeDetailScreen(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val playerState by player.state.collectAsStateWithLifecycle()
     val row = state.row
     val colors = backbeeColors
+    val scrollState = rememberScrollState()
+
+    // Where the bulk section starts within the scrolling content, so opening it
+    // can put it on screen. Its confirm buttons are two thirds of a page down
+    // from the button that reveals them, which read as "nothing happened".
+    var bulkTop by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(state.bulk.scope) {
+        if (state.bulk.scope != null) scrollState.animateScrollTo(bulkTop.toInt())
+    }
 
     if (row == null) {
         Column(modifier.fillMaxSize().background(colors.bgPage)) {}
         return
     }
 
+    val loadedHere = playerState.episodeId == row.id
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(colors.bgPage)
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(Dimens.gutter),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -81,7 +101,7 @@ fun EpisodeDetailScreen(
         Text(
             text = (row.episodeNumber ?: (row.orderIndex + 1)).toString(),
             style = BackbeeType.displayMedium,
-            color = colors.accentPrimary,
+            color = colors.textAccent,
         )
         Text(text = row.title, style = BackbeeType.title, color = colors.textPrimary)
 
@@ -100,10 +120,20 @@ fun EpisodeDetailScreen(
 
         Spacer(Modifier.height(Dimens.space5))
 
-        BrutalButton(onClick = { player.playEpisode(row.id) }) {
+        // Once the player holds this episode the button is a transport control,
+        // not a way in: offering "resume from 1:17" while 1:17 is playing invites
+        // a tap that seeks backwards for no reason.
+        BrutalButton(
+            onClick = { if (loadedHere) player.togglePlayPause() else player.playEpisode(row.id) },
+        ) {
             Label(
-                if ((row.positionSeconds ?: 0) > 0) "Resume from ${ArchiveProgress.formatClock(row.positionSeconds ?: 0)}"
-                else "Play from 00:00",
+                when {
+                    loadedHere && playerState.isPlaying -> "Pause"
+                    loadedHere -> "Resume"
+                    (row.positionSeconds ?: 0) > 0 ->
+                        "Resume from ${ArchiveProgress.formatClock(row.positionSeconds ?: 0)}"
+                    else -> "Play from 00:00"
+                },
                 color = colors.onAccentPrimary,
             )
         }
@@ -115,7 +145,7 @@ fun EpisodeDetailScreen(
                 Mono(
                     if (row.isStarred) "${Glyph.STARRED} STARRED" else "${Glyph.STARRED} STAR",
                     style = BackbeeType.monoSmall,
-                    color = if (row.isStarred) colors.accentPrimary else colors.textPrimary,
+                    color = if (row.isStarred) colors.textAccent else colors.textPrimary,
                 )
             }
             BrutalOutlineButton(
@@ -136,7 +166,18 @@ fun EpisodeDetailScreen(
 
         // Keep-after-playing: the exemption from the automatic cleanup that
         // otherwise reclaims every episode 24 hours after it is finished.
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                // toggleable merges the label and its description into one
+                // announced control; a bare Switch says only "switch, off".
+                .toggleable(
+                    value = row.isKept,
+                    onValueChange = { viewModel.setKeepAfterPlaying(it) },
+                    role = Role.Switch,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Column(Modifier.weight(1f)) {
                 Label("Keep after playing", color = colors.textPrimary)
                 Mono(
@@ -145,10 +186,7 @@ fun EpisodeDetailScreen(
                     color = colors.textMuted,
                 )
             }
-            Switch(
-                checked = row.isKept,
-                onCheckedChange = { viewModel.setKeepAfterPlaying(it) },
-            )
+            Switch(checked = row.isKept, onCheckedChange = null)
         }
 
         Spacer(Modifier.height(Dimens.space3))
@@ -158,7 +196,7 @@ fun EpisodeDetailScreen(
                 Mono(
                     "DELETE DOWNLOAD" + (row.bytesDone?.takeIf { it > 0 }?.let { "  ·  ${it / (1024 * 1024)} MB →" } ?: ""),
                     style = BackbeeType.monoSmall,
-                    color = colors.accentAlert,
+                    color = colors.textAlert,
                 )
             }
         } else {
@@ -171,13 +209,15 @@ fun EpisodeDetailScreen(
         BrutalDivider()
         Spacer(Modifier.height(Dimens.space4))
 
-        BulkSection(
-            bulk = state.bulk,
-            onOpen = viewModel::openBulk,
-            onApply = viewModel::applyBulk,
-            onUndo = viewModel::undoBulk,
-            onDismiss = viewModel::dismissBulk,
-        )
+        Column(Modifier.onGloballyPositioned { bulkTop = it.positionInParent().y }) {
+            BulkSection(
+                bulk = state.bulk,
+                onOpen = viewModel::openBulk,
+                onApply = viewModel::applyBulk,
+                onUndo = viewModel::undoBulk,
+                onDismiss = viewModel::dismissBulk,
+            )
+        }
 
         Spacer(Modifier.height(Dimens.space5))
         BrutalDivider()
@@ -252,7 +292,7 @@ private fun BulkSection(
                 enabled = !bulk.working,
                 modifier = Modifier.weight(1f),
             ) {
-                Mono("UNDO", style = BackbeeType.monoSmall, color = colors.accentAlert)
+                Mono("UNDO", style = BackbeeType.monoSmall, color = colors.textAlert)
             }
             BrutalOutlineButton(
                 onClick = onDismiss,
@@ -312,14 +352,16 @@ private fun BulkSection(
             enabled = !bulk.working && summary.unplayed > 0,
             modifier = Modifier.weight(1f),
         ) {
-            Mono("MARK PLAYED", style = BackbeeType.monoSmall, color = colors.onAccentPrimary)
+            // "THEM", not "MARK PLAYED": the single-episode button of that exact
+            // name is still on screen a few hundred pixels up.
+            Mono("MARK THEM PLAYED", style = BackbeeType.monoSmall, color = colors.onAccentPrimary)
         }
         BrutalOutlineButton(
             onClick = { onApply(false) },
             enabled = !bulk.working && summary.played > 0,
             modifier = Modifier.weight(1f),
         ) {
-            Mono("MARK UNPLAYED", style = BackbeeType.monoSmall, color = colors.textPrimary)
+            Mono("MARK THEM UNPLAYED", style = BackbeeType.monoSmall, color = colors.textPrimary)
         }
     }
     Spacer(Modifier.height(Dimens.space2))

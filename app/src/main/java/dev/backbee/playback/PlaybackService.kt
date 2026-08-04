@@ -52,6 +52,7 @@ class PlaybackService : MediaLibraryService() {
             repository = container.playbackRepository,
             onEpisodeFinished = { container.workScheduler.requestDownloadAhead(container.settingsStore.current().wifiOnlyDownloads) },
             onFlushed = { container.diagnostics.recordPositionFlush() },
+            onLoadedEpisodeChanged = { container.playbackStateStore.setLoadedEpisode(it) },
         ).also { it.attach(player) }
 
         coordinator = PlaybackCoordinator(

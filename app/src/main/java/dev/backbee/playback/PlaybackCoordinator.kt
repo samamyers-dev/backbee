@@ -60,7 +60,7 @@ class PlaybackCoordinator(
     // -- Planning -----------------------------------------------------------
 
     /**
-     * The queue for resuming the active show at its bookmark. This is what the
+     * The queue for resuming the active show where it was left off. This is what the
      * giant Play button, the widget, the headset button and Auto's "Resume" all
      * ultimately ask for.
      */
@@ -106,7 +106,7 @@ class PlaybackCoordinator(
      * Where to actually start.
      *
      * A fresh episode starts past the intro if the show has one configured. A
-     * part-heard episode starts at its bookmark, rewound by an amount scaled to
+     * part-heard episode starts at its saved position, rewound by an amount scaled to
      * how long the pause was.
      */
     private suspend fun startPositionFor(row: EpisodeRow, show: ShowEntity, settings: Settings): Long {

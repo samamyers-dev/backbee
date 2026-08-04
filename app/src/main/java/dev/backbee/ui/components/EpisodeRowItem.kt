@@ -60,14 +60,14 @@ fun EpisodeRowItem(
     ) {
         Mono(
             text = (row.episodeNumber ?: (row.orderIndex + 1)).toString(),
-            color = if (dim) colors.textMuted else colors.accentPrimary,
+            color = if (dim) colors.textMuted else colors.textAccent,
             style = BackbeeType.mono,
             modifier = Modifier.width(52.dp),
         )
 
         Column(Modifier.weight(1f)) {
             Text(
-                text = highlightedTitle(row.title, highlight, colors.accentPrimary),
+                text = highlightedTitle(row.title, highlight, colors.textAccent),
                 style = BackbeeType.titleSmall,
                 color = if (dim) colors.textMuted else colors.textPrimary,
                 maxLines = 2,
@@ -95,7 +95,7 @@ fun EpisodeRowItem(
                 .padding(start = Dimens.space2)
                 .width(56.dp),
         ) {
-            if (row.isStarred) GlyphText(Glyph.STARRED, colors.accentPrimary)
+            if (row.isStarred) GlyphText(Glyph.STARRED, colors.textAccent)
 
             // Exactly one state glyph. "Downloaded" and "untouched" are not two
             // facts to stack up - a downloaded episode is by definition one you
@@ -103,11 +103,11 @@ fun EpisodeRowItem(
             // meant to be read while scrolling past a thousand rows.
             when {
                 row.isPlayed -> GlyphText(Glyph.PLAYED, colors.textMuted)
-                isPlaying -> GlyphText(Glyph.PLAYING, colors.accentPrimary)
+                isPlaying -> GlyphText(Glyph.PLAYING, colors.textAccent)
                 row.downloadState == DownloadState.FAILED ->
-                    GlyphText(Glyph.FAILED, colors.accentAlert)
-                row.progressFraction != null -> GlyphText(Glyph.PLAYING, colors.accentSecondary)
-                row.isDownloaded -> GlyphText(Glyph.DOWNLOADED, colors.accentFunctional)
+                    GlyphText(Glyph.FAILED, colors.textAlert)
+                row.progressFraction != null -> GlyphText(Glyph.PLAYING, colors.textSecondary)
+                row.isDownloaded -> GlyphText(Glyph.DOWNLOADED, colors.textFunctional)
                 row.downloadState == DownloadState.RUNNING ||
                     row.downloadState == DownloadState.QUEUED ->
                     GlyphText(Glyph.DOWNLOADED, colors.textMuted)

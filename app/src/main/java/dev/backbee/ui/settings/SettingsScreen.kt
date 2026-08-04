@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -137,7 +139,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
                                 .padding(vertical = Dimens.space2),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Mono("${tier.rewindSeconds}s", style = BackbeeType.mono, color = colors.accentPrimary)
+                            Mono("${tier.rewindSeconds}s", style = BackbeeType.mono, color = colors.textAccent)
                             Mono(tierLabel(tier.pauseAtMostSeconds), style = BackbeeType.monoMicro, color = colors.textMuted)
                         }
                     }
@@ -237,7 +239,7 @@ private fun Stepper(label: String, value: String, onDown: () -> Unit, onUp: () -
     ) {
         Mono(label.uppercase(), style = BackbeeType.monoSmall, color = colors.textPrimary, modifier = Modifier.weight(1f))
         StepKey("−", onDown)
-        Mono(value, style = BackbeeType.mono, color = colors.accentPrimary,
+        Mono(value, style = BackbeeType.mono, color = colors.textAccent,
             modifier = Modifier.padding(horizontal = Dimens.space3))
         StepKey("+", onUp)
     }
@@ -260,14 +262,20 @@ private fun StepKey(symbol: String, onClick: () -> Unit) {
 @Composable
 private fun SwitchRow(label: String, description: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     val colors = backbeeColors
+    // The whole row toggles, and toggleable merges the label and description
+    // into it, so it announces as one control. A bare Switch reads out as
+    // "switch, off" with no hint of what it switches.
     Row(
-        Modifier.fillMaxWidth().padding(vertical = Dimens.space2),
+        Modifier
+            .fillMaxWidth()
+            .toggleable(value = checked, onValueChange = onChange, role = Role.Switch)
+            .padding(vertical = Dimens.space2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
             Mono(label.uppercase(), style = BackbeeType.monoSmall, color = colors.textPrimary)
             Mono(description, style = BackbeeType.monoMicro, color = colors.textMuted)
         }
-        Switch(checked = checked, onCheckedChange = onChange)
+        Switch(checked = checked, onCheckedChange = null)
     }
 }

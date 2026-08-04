@@ -51,7 +51,7 @@ import dev.backbee.ui.theme.backbeeColors
  * Direction 1A, "Spine" - the recommended default from the screens spec.
  *
  * Artwork, then a book-spine progress rail marked with years, then one enormous
- * RESUME. The spine is the whole idea made visible: a bookmark somewhere in a
+ * RESUME. The spine is the whole idea made visible: your place somewhere in a
  * very long book, with everything read behind it and everything unread ahead.
  */
 @Composable
@@ -127,8 +127,8 @@ private fun SpineNow(
     modifier: Modifier = Modifier,
 ) {
     val colors = backbeeColors
-    // Whatever is loaded in the player, falling back to the bookmark. Reading
-    // the bookmark here instead is the bug that made playing episode 500 leave
+    // Whatever is loaded in the player, falling back to where you left off.
+    // Reading your place here instead is the bug that made playing episode 500 leave
     // this screen describing episode 1.
     val target = state.current
     val playingThis = playerState.episodeId != null && playerState.episodeId == target?.id
@@ -147,7 +147,7 @@ private fun SpineNow(
                     Mono(
                         text = "$it DOWNLOADED",
                         style = BackbeeType.monoSmall,
-                        color = colors.accentFunctional,
+                        color = colors.textFunctional,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
@@ -160,7 +160,7 @@ private fun SpineNow(
             Text(
                 text = (target?.episodeNumber ?: ((target?.orderIndex ?: 0) + 1)).toString(),
                 style = BackbeeType.displayMedium,
-                color = colors.accentPrimary,
+                color = colors.textAccent,
             )
             Text(
                 text = target?.title.orEmpty(),
@@ -194,6 +194,7 @@ private fun SpineNow(
             Spine(
                 fraction = progress.percentByEpisodes / 100f,
                 yearMarks = state.yearMarks,
+                detourFraction = state.detourFraction,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(Dimens.space2))
@@ -256,7 +257,7 @@ private fun SpineNow(
             Mono(
                 text = it,
                 style = BackbeeType.monoSmall,
-                color = colors.accentSecondary,
+                color = colors.textSecondary,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 4.dp),
@@ -317,12 +318,14 @@ private fun SpineNow(
 
 /**
  * The book spine: a filled block for what has been read, ticks for year
- * boundaries, and a hard marker at the bookmark.
+ * boundaries, a hard marker at your place, and - only when the player has
+ * wandered off somewhere else - a hollow one showing where it went.
  */
 @Composable
 private fun Spine(
     fraction: Float,
     yearMarks: List<Pair<Int, Float>>,
+    detourFraction: Float? = null,
     modifier: Modifier = Modifier,
 ) {
     val colors = backbeeColors
@@ -340,7 +343,13 @@ private fun Spine(
                         val x = size.width * at.coerceIn(0f, 1f)
                         drawRect(colors.borderColor, Offset(x, 0f), Size(1.5f, size.height))
                     }
-                    // The bookmark itself, heavier than the year ticks.
+                    // Where the player is, when that is not where you left off.
+                    // Drawn first so your place stays the mark on top.
+                    detourFraction?.let { at ->
+                        val x = size.width * at.coerceIn(0f, 1f)
+                        drawRect(colors.textMuted, Offset(x - 1f, 0f), Size(2f, size.height))
+                    }
+                    // Your place itself, heavier than the year ticks.
                     drawRect(colors.accentSecondary, Offset(read - 2f, 0f), Size(4f, size.height))
                 },
         )
@@ -381,7 +390,7 @@ private fun UpNextRow(row: EpisodeRow, onClick: () -> Unit) {
             Mono(
                 text = (row.episodeNumber ?: (row.orderIndex + 1)).toString(),
                 style = BackbeeType.mono,
-                color = colors.accentPrimary,
+                color = colors.textAccent,
                 modifier = Modifier.padding(end = Dimens.space3),
             )
             Column(Modifier.weight(1f)) {
@@ -397,11 +406,11 @@ private fun UpNextRow(row: EpisodeRow, onClick: () -> Unit) {
                     // without signal?
                     text = if (row.isDownloaded) "ON DEVICE" else "NOT DOWNLOADED",
                     style = BackbeeType.monoMicro,
-                    color = if (row.isDownloaded) colors.accentFunctional else colors.textMuted,
+                    color = if (row.isDownloaded) colors.textFunctional else colors.textMuted,
                 )
             }
             if (row.isDownloaded) {
-                GlyphText(Glyph.DOWNLOADED, colors.accentFunctional, Modifier.size(20.dp))
+                GlyphText(Glyph.DOWNLOADED, colors.textFunctional, Modifier.size(20.dp))
             }
         }
     }

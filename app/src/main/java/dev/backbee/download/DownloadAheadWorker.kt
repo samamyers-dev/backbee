@@ -33,10 +33,12 @@ class DownloadAheadWorker(
         val resumeTarget = container.playbackRepository.resumeTarget(show.id)
         val currentOrderIndex = resumeTarget?.orderIndex ?: 0
 
-        val plan = container.downloadRepository.planFor(show.id, currentOrderIndex)
+        val loadedEpisodeId = container.playbackStateStore.currentLoadedEpisodeId()
+
+        val plan = container.downloadRepository.planFor(show.id, currentOrderIndex, loadedEpisodeId)
         Log.i(
             TAG,
-            "show=${show.id} at=$currentOrderIndex fetch=${plan.toDownload.size} " +
+            "show=${show.id} at=$currentOrderIndex loaded=$loadedEpisodeId fetch=${plan.toDownload.size} " +
                 "drop=${plan.toDelete.size} projected=${plan.projectedBytes / (1024 * 1024)}MB" +
                 if (plan.capLimited) " (storage cap reached)" else ""
         )

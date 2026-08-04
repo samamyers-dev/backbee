@@ -282,7 +282,7 @@ interface EpisodeDao {
     )
     suspend fun yearMarks(showId: Long): List<YearMarkRow>
 
-    /** Unplayed episodes at or after the bookmark that are already on disk. */
+    /** Unplayed episodes at or after where you left off that are already on disk. */
     @Query(
         """
         SELECT COUNT(*) FROM episodes e
