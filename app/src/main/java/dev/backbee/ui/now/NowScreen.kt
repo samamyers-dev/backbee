@@ -17,7 +17,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -41,6 +45,7 @@ import dev.backbee.ui.components.GlyphText
 import dev.backbee.ui.components.Label
 import dev.backbee.ui.components.Mono
 import dev.backbee.ui.components.Readout
+import dev.backbee.ui.components.ScanBar
 import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
 import dev.backbee.ui.theme.Shadow
@@ -110,6 +115,9 @@ fun NowScreen(
 
 /** The speeds worth having on a one-tap key; wraps back to 1×. */
 private val SPEEDS = listOf(1.0f, 1.2f, 1.4f, 1.6f, 1.8f, 2.0f)
+
+/** How long a player-vs-place mismatch must last before it counts as a detour. */
+private const val DETOUR_CONFIRM_MS = 1_500L
 
 private fun nextSpeed(current: Float): Float {
     val index = SPEEDS.indexOfFirst { it > current + 0.01f }
@@ -208,7 +216,21 @@ private fun SpineNow(
         // Playing out of sequence is allowed, but it must never be silent: your
         // place has not moved, and from here auto-advance walks forward from
         // wherever the player is, not from where you left off.
-        if (state.isDetour) {
+        //
+        // Only once the mismatch has survived a beat, though. At every
+        // auto-advance the player moves to the next episode a moment before the
+        // played flag commits, and in that gap this looks exactly like a detour.
+        // A real detour lasts; the gap does not.
+        var confirmedDetour by remember { mutableStateOf(false) }
+        LaunchedEffect(state.isDetour) {
+            if (state.isDetour) {
+                kotlinx.coroutines.delay(DETOUR_CONFIRM_MS)
+                confirmedDetour = true
+            } else {
+                confirmedDetour = false
+            }
+        }
+        if (state.isDetour && confirmedDetour) {
             val leftOff = state.resumeTarget
             Spacer(Modifier.height(Dimens.space5))
             Readout(
@@ -280,16 +302,31 @@ private fun SpineNow(
         }
 
         if (playingThis && playerState.durationMs > 0) {
-            Mono(
-                text = "${ArchiveProgress.formatClock(playerState.positionSeconds)}   " +
-                    "−${ArchiveProgress.formatClock(playerState.remainingMs / 1000)}",
-                style = BackbeeType.mono,
-                color = colors.textPrimary,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = Dimens.space3),
-                textAlign = TextAlign.Center,
-            )
+            // The clock doubles as the way into the scan bar, which stays out
+            // of sight until asked for - a permanently draggable strip next to
+            // the transport keys is exactly the mis-tap they exist to avoid.
+            var scanOpen by remember { mutableStateOf(false) }
+            if (scanOpen) {
+                ScanBar(
+                    positionMs = playerState.positionMs,
+                    durationMs = playerState.durationMs,
+                    onSeek = player::seekTo,
+                    onCollapse = { scanOpen = false },
+                    modifier = Modifier.padding(top = Dimens.space3),
+                )
+            } else {
+                Mono(
+                    text = "${ArchiveProgress.formatClock(playerState.positionSeconds)}   " +
+                        "−${ArchiveProgress.formatClock(playerState.remainingMs / 1000)}   ⇄",
+                    style = BackbeeType.mono,
+                    color = colors.textPrimary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClickLabel = "Scan through the episode") { scanOpen = true }
+                        .padding(top = Dimens.space3),
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
 
         Spacer(Modifier.height(Dimens.space8))

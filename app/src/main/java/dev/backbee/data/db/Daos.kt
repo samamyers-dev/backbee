@@ -170,18 +170,24 @@ interface EpisodeDao {
     )
     fun observeNextUnplayed(showId: Long): Flow<EpisodeRow?>
 
-    /** The look-ahead strip on the Now screen, and the player's queue window. */
+    /**
+     * The player's queue window: what auto-advance will play after a point.
+     * Skips played episodes, matching [observeUpNext] - replaying something
+     * already finished because it happened to sit between two unplayed ones is
+     * the "playing out of sequence" bug, not gapless playback.
+     */
     @Query(
         """
         SELECT $EPISODE_COLUMNS $EPISODE_JOINS
         WHERE e.show_id = :showId
-          AND e.order_index >= :fromOrderIndex
+          AND e.order_index > :afterOrderIndex
+          AND (p.played IS NULL OR p.played = 0)
           AND e.enclosure_url IS NOT NULL
         ORDER BY e.order_index ASC
         LIMIT :limit
         """
     )
-    suspend fun fromOrderIndex(showId: Long, fromOrderIndex: Int, limit: Int): List<EpisodeRow>
+    suspend fun unplayedAfter(showId: Long, afterOrderIndex: Int, limit: Int): List<EpisodeRow>
 
     @Query(
         """

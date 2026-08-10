@@ -28,6 +28,7 @@ import dev.backbee.ui.components.Label
 import dev.backbee.ui.components.Mono
 import dev.backbee.ui.components.NowPlayingBar
 import dev.backbee.ui.components.Readout
+import dev.backbee.ui.components.ScanBar
 import dev.backbee.ui.components.StatusChip
 import dev.backbee.ui.theme.BackbeeTheme
 import dev.backbee.ui.theme.Dimens
@@ -72,6 +73,12 @@ class ScreenshotTest {
 
     @Test
     fun `now playing bar light`() = shoot("now-playing-bar-light", dark = false, animated = true) { NowPlayingStates() }
+
+    @Test
+    fun `scan bar dark`() = shoot("scan-bar-dark", dark = true) { ScanBarStates() }
+
+    @Test
+    fun `scan bar light`() = shoot("scan-bar-light", dark = false) { ScanBarStates() }
 
     /**
      * [animated] stops the test clock from being driven automatically. The
@@ -209,6 +216,21 @@ private fun NowPlayingStates() {
             isBuffering = true,
             onOpen = {}, onTogglePlay = {}, onSkipBack = {},
         )
+    }
+}
+
+/** The scan-through bar: shown only when invoked, so both trims are here. */
+@Composable
+private fun ScanBarStates() {
+    Column(
+        Modifier.padding(Dimens.gutter),
+        verticalArrangement = Arrangement.spacedBy(Dimens.space4),
+    ) {
+        Label("Scan-through, mid-episode")
+        ScanBar(positionMs = 1_601_000, durationMs = 4_680_000, onSeek = {})
+
+        Label("Scan-through, with the collapse affordance")
+        ScanBar(positionMs = 240_000, durationMs = 4_680_000, onSeek = {}, onCollapse = {})
     }
 }
 

@@ -11,7 +11,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -123,6 +127,25 @@ fun BackbeeNavHost(
                     arguments = listOf(navArgument("episodeId") { type = NavType.LongType }),
                 ) { entry ->
                     val episodeId = entry.arguments?.getLong("episodeId") ?: return@composable
+
+                    // This is the de-facto player page. Once its episode is the
+                    // one loaded, follow auto-advance to the next episode rather
+                    // than going stale - a page describing an episode that
+                    // stopped playing minutes ago is the same as being wrong.
+                    // Browsing an episode that is *not* playing never triggers it.
+                    val playingId = playerState.episodeId
+                    var wasLoaded by rememberSaveable { mutableStateOf(false) }
+                    LaunchedEffect(playingId) {
+                        when {
+                            playingId == episodeId -> wasLoaded = true
+                            wasLoaded && playingId != null ->
+                                navController.navigate(Routes.episode(playingId)) {
+                                    popUpTo(Routes.EPISODE) { inclusive = true }
+                                    launchSingleTop = true
+                                }
+                        }
+                    }
+
                     val vm: EpisodeDetailViewModel =
                         viewModel(factory = viewModelFactory { EpisodeDetailViewModel(container, episodeId) })
                     EpisodeDetailScreen(
@@ -170,8 +193,20 @@ fun BackbeeNavHost(
                 isPlaying = playerState.isPlaying,
                 isBuffering = playerState.isBuffering,
                 onOpen = {
-                    if (currentRoute != Routes.NOW) {
-                        navController.navigate(Routes.NOW) {
+                    // The bar is the way back to the playing episode's page from
+                    // anywhere. Only when nothing identifies the episode does it
+                    // fall back to Now.
+                    val playingId = playerState.episodeId
+                    val alreadyThere = playingId != null && currentRoute == Routes.EPISODE &&
+                        backStackEntry?.arguments?.getLong("episodeId") == playingId
+                    when {
+                        alreadyThere -> Unit
+                        playingId != null -> navController.navigate(Routes.episode(playingId)) {
+                            // One player page on the stack, not one per tap.
+                            popUpTo(Routes.EPISODE) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                        currentRoute != Routes.NOW -> navController.navigate(Routes.NOW) {
                             popUpTo(Routes.NOW) { inclusive = true }
                             launchSingleTop = true
                         }
