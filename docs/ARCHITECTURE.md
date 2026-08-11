@@ -24,7 +24,10 @@ separate queue model to keep in sync. `episodes.order_index` is the spine, and
 everything else hangs off it:
 
 - Resume = the lowest `order_index` that is not played.
-- Auto-advance = the next `order_index`.
+- Auto-advance = the next `order_index` that is not played. Skipping the played
+  ones keeps the queue in agreement with Resume and "Next up" — replaying an
+  episode you already finished because it happened to sit between two unplayed
+  ones is playing out of sequence, not gapless playback.
 - Download-ahead = the next N `order_index` values that are unplayed.
 - Progress = played count over total count.
 

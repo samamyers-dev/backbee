@@ -83,10 +83,13 @@ class PlaybackCoordinator(
     }
 
     private suspend fun planFor(show: ShowEntity, target: EpisodeRow): QueuePlan? {
+        if (target.enclosureUrl == null) return null
         activeShow = show
         val settings = settingsStore.current()
-        val window = playback.queueWindow(show.id, target.orderIndex, WINDOW_SIZE)
-        if (window.isEmpty()) return null
+        // The target itself heads the queue whatever its state - re-listening to
+        // a played episode is allowed - but everything after it is unplayed
+        // only, so auto-advance never replays something already finished.
+        val window = listOf(target) + playback.unplayedAfter(show.id, target.orderIndex, WINDOW_SIZE - 1)
 
         // Per-show speed and the skip increments are player properties rather
         // than queue contents, so they are safe to apply here either way.
@@ -167,7 +170,7 @@ class PlaybackCoordinator(
         if (count - index > EXTEND_THRESHOLD) return
 
         val lastOrderIndex = MediaItems.orderIndexOf(lastItem) ?: return
-        val more = playback.queueWindow(show.id, lastOrderIndex + 1, WINDOW_SIZE)
+        val more = playback.unplayedAfter(show.id, lastOrderIndex, WINDOW_SIZE)
         if (more.isEmpty()) return
 
         val items = more.map { MediaItems.forEpisode(it, show) }
@@ -194,7 +197,21 @@ class PlaybackCoordinator(
                     val duration = player.duration
                     val position = player.currentPosition
                     if (duration > 0 && position > 0 && duration - position <= outroSeconds * 1000L) {
-                        if (player.hasNextMediaItem()) player.seekToNextMediaItem() else player.seekTo(duration)
+                        if (player.hasNextMediaItem()) {
+                            // A seek, not an auto-transition, so the PositionWriter
+                            // will never see this episode end - it has to be marked
+                            // finished here or the resume target (and every screen
+                            // reading it) stays stuck on it forever.
+                            val finishedId = MediaItems.episodeIdOf(player.currentMediaItem)
+                            player.seekToNextMediaItem()
+                            if (finishedId != null) {
+                                scope.launch { playback.markPlayed(finishedId, position / 1000) }
+                            }
+                        } else {
+                            // Seeking to the end raises STATE_ENDED, which the
+                            // PositionWriter already treats as finished.
+                            player.seekTo(duration)
+                        }
                     }
                 }
             }

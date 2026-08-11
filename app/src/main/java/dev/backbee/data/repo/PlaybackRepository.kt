@@ -44,8 +44,9 @@ class PlaybackRepository(private val db: BackbeeDatabase) {
 
     suspend fun episodeCount(showId: Long): Int = episodeDao.count(showId)
 
-    suspend fun queueWindow(showId: Long, fromOrderIndex: Int, limit: Int): List<EpisodeRow> =
-        episodeDao.fromOrderIndex(showId, fromOrderIndex, limit)
+    /** The auto-advance queue after a point: unplayed only, in archive order. */
+    suspend fun unplayedAfter(showId: Long, afterOrderIndex: Int, limit: Int): List<EpisodeRow> =
+        episodeDao.unplayedAfter(showId, afterOrderIndex, limit)
 
     suspend fun starredEpisodes(showId: Long, limit: Int = 100): List<EpisodeRow> =
         episodeDao.starred(showId, limit)

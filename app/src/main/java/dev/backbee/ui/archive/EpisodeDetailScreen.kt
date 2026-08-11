@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,6 +39,7 @@ import dev.backbee.ui.components.Glyph
 import dev.backbee.ui.components.Label
 import dev.backbee.ui.components.Mono
 import dev.backbee.ui.components.Readout
+import dev.backbee.ui.components.ScanBar
 import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
 import dev.backbee.ui.theme.Shadow
@@ -136,6 +138,26 @@ fun EpisodeDetailScreen(
                 },
                 color = colors.onAccentPrimary,
             )
+        }
+
+        // Scan-through, only while this episode is the one loaded and only when
+        // invoked - a permanently draggable strip above the archive controls
+        // would be a mis-tap magnet on a page that is mostly reading surface.
+        if (loadedHere && playerState.durationMs > 0) {
+            Spacer(Modifier.height(Dimens.space3))
+            var scanOpen by remember { mutableStateOf(false) }
+            if (scanOpen) {
+                ScanBar(
+                    positionMs = playerState.positionMs,
+                    durationMs = playerState.durationMs,
+                    onSeek = player::seekTo,
+                    onCollapse = { scanOpen = false },
+                )
+            } else {
+                BrutalOutlineButton(onClick = { scanOpen = true }) {
+                    Mono("⇄ SCAN THROUGH", style = BackbeeType.monoSmall, color = colors.textPrimary)
+                }
+            }
         }
 
         Spacer(Modifier.height(Dimens.space3))

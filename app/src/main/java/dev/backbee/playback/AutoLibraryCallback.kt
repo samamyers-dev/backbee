@@ -63,9 +63,11 @@ class AutoLibraryCallback(
             )
 
             UP_NEXT -> {
-                val from = playback.resumeTarget(show.id)?.orderIndex ?: 0
-                playback.queueWindow(show.id, from, AUTO_LIST_LIMIT)
-                    .map { MediaItems.forEpisode(it, show) }
+                // The same list auto-advance will actually play: the resume
+                // target, then the unplayed episodes after it.
+                val target = playback.resumeTarget(show.id)
+                val after = playback.unplayedAfter(show.id, target?.orderIndex ?: -1, AUTO_LIST_LIMIT - 1)
+                (listOfNotNull(target) + after).map { MediaItems.forEpisode(it, show) }
             }
 
             STARRED -> playback.starredEpisodes(show.id, AUTO_LIST_LIMIT)
