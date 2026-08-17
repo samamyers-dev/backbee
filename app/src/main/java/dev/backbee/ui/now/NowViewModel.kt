@@ -237,6 +237,19 @@ class NowViewModel(
         viewModelScope.launch { shows.updateShow(show.copy(speed = speed)) }
     }
 
+    /**
+     * For an episode already heard somewhere else: finish it and move on.
+     * The mark is committed before the player advances, so nothing is lost if
+     * the advance triggers navigation or a queue rebuild.
+     */
+    fun markCurrentPlayedAndAdvance() {
+        val playing = state.value.nowPlaying ?: return
+        viewModelScope.launch {
+            playback.markPlayed(playing.id, playing.durationSeconds ?: player.state.value.positionSeconds)
+            player.next()
+        }
+    }
+
     fun refreshNow() {
         container.workScheduler.refreshNow()
     }

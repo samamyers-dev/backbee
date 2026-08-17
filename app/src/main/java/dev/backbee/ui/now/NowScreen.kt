@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.backbee.core.playback.ArchiveProgress
+import dev.backbee.core.playback.PlaybackSpeeds
 import dev.backbee.data.db.EpisodeRow
 import dev.backbee.playback.PlayerConnection
 import dev.backbee.playback.PlayerState
@@ -107,22 +108,15 @@ fun NowScreen(
             player = player,
             onOpenArchive = onOpenArchive,
             onOpenCompletion = onOpenCompletion,
-            onCycleSpeed = { viewModel.setSpeed(nextSpeed(state.show?.speed ?: 1f)) },
+            onCycleSpeed = { viewModel.setSpeed(PlaybackSpeeds.next(state.show?.speed ?: 1f)) },
+            onMarkPlayedAndNext = viewModel::markCurrentPlayedAndAdvance,
             modifier = modifier,
         )
     }
 }
 
-/** The speeds worth having on a one-tap key; wraps back to 1×. */
-private val SPEEDS = listOf(1.0f, 1.2f, 1.4f, 1.6f, 1.8f, 2.0f)
-
 /** How long a player-vs-place mismatch must last before it counts as a detour. */
 private const val DETOUR_CONFIRM_MS = 1_500L
-
-private fun nextSpeed(current: Float): Float {
-    val index = SPEEDS.indexOfFirst { it > current + 0.01f }
-    return if (index == -1) SPEEDS.first() else SPEEDS[index]
-}
 
 @Composable
 private fun SpineNow(
@@ -132,6 +126,7 @@ private fun SpineNow(
     onOpenArchive: () -> Unit,
     onOpenCompletion: (Long) -> Unit,
     onCycleSpeed: () -> Unit,
+    onMarkPlayedAndNext: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = backbeeColors
@@ -299,6 +294,16 @@ private fun SpineNow(
                 "${ArchiveProgress.formatSpeed(state.show?.speed ?: 1f)}×",
                 Modifier.weight(1f),
             ) { onCycleSpeed() }
+        }
+
+        // The escape hatch for an episode already heard somewhere else: finish
+        // it in one tap and let playback move on, instead of scrubbing to the
+        // end or hunting the archive for the next one.
+        if (playingThis) {
+            Spacer(Modifier.height(Dimens.space2))
+            BrutalOutlineButton(onClick = onMarkPlayedAndNext) {
+                Mono("✓ MARK PLAYED · NEXT →", style = BackbeeType.monoSmall, color = colors.textPrimary)
+            }
         }
 
         if (playingThis && playerState.durationMs > 0) {

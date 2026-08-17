@@ -90,6 +90,31 @@ class EpisodeDetailViewModel(
         }
     }
 
+    /**
+     * For an episode already heard somewhere else: finish it and move on.
+     *
+     * [onMarked] runs only after the played flag is committed. Advancing the
+     * player makes this page follow to the next episode, which clears this
+     * ViewModel - so the write has to be safely down before that starts.
+     */
+    fun markPlayedAndAdvance(onMarked: () -> Unit) {
+        viewModelScope.launch {
+            playback.markPlayed(episodeId, state.value.row?.durationSeconds ?: 0)
+            nudgeDownloads()
+            onMarked()
+        }
+    }
+
+    /** The speed key persists per show, exactly as the one on Now does. */
+    fun persistSpeed(speed: Float) {
+        val row = state.value.row ?: return
+        viewModelScope.launch {
+            container.showRepository.getShow(row.showId)?.let {
+                container.showRepository.updateShow(it.copy(speed = speed))
+            }
+        }
+    }
+
     // -- Bulk marking -------------------------------------------------------
 
     /**

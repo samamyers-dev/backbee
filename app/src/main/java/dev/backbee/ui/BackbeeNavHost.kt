@@ -214,6 +214,7 @@ fun BackbeeNavHost(
                 },
                 onTogglePlay = player::togglePlayPause,
                 onSkipBack = player::skipBack,
+                onSkipForward = player::skipForward,
             )
         }
 

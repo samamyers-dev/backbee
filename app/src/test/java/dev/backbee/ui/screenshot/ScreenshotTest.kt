@@ -190,7 +190,7 @@ private fun NowPlayingStates() {
             durationMs = 4_680_000,
             isPlaying = true,
             isBuffering = false,
-            onOpen = {}, onTogglePlay = {}, onSkipBack = {},
+            onOpen = {}, onTogglePlay = {}, onSkipBack = {}, onSkipForward = {},
         )
 
         Label("Paused", modifier = Modifier.padding(horizontal = Dimens.gutter))
@@ -202,7 +202,7 @@ private fun NowPlayingStates() {
             durationMs = 4_680_000,
             isPlaying = false,
             isBuffering = false,
-            onOpen = {}, onTogglePlay = {}, onSkipBack = {},
+            onOpen = {}, onTogglePlay = {}, onSkipBack = {}, onSkipForward = {},
         )
 
         Label("Buffering", modifier = Modifier.padding(horizontal = Dimens.gutter))
@@ -214,7 +214,7 @@ private fun NowPlayingStates() {
             durationMs = 0,
             isPlaying = false,
             isBuffering = true,
-            onOpen = {}, onTogglePlay = {}, onSkipBack = {},
+            onOpen = {}, onTogglePlay = {}, onSkipBack = {}, onSkipForward = {},
         )
     }
 }

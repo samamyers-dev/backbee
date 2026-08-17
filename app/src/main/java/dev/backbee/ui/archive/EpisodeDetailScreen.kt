@@ -20,7 +20,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -31,6 +30,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.backbee.core.playback.ArchiveProgress
+import dev.backbee.core.playback.PlaybackSpeeds
 import dev.backbee.playback.PlayerConnection
 import dev.backbee.ui.components.BrutalButton
 import dev.backbee.ui.components.BrutalDivider
@@ -140,23 +140,48 @@ fun EpisodeDetailScreen(
             )
         }
 
-        // Scan-through, only while this episode is the one loaded and only when
-        // invoked - a permanently draggable strip above the archive controls
-        // would be a mis-tap magnet on a page that is mostly reading surface.
+        // While this episode is the one loaded, this page is the player: the
+        // scan bar sits in the open, with the transport and speed keys under it.
+        // On any other episode the page stays a reading surface - no controls
+        // that would act on some *other* episode's audio.
         if (loadedHere && playerState.durationMs > 0) {
             Spacer(Modifier.height(Dimens.space3))
-            var scanOpen by remember { mutableStateOf(false) }
-            if (scanOpen) {
-                ScanBar(
-                    positionMs = playerState.positionMs,
-                    durationMs = playerState.durationMs,
-                    onSeek = player::seekTo,
-                    onCollapse = { scanOpen = false },
-                )
-            } else {
-                BrutalOutlineButton(onClick = { scanOpen = true }) {
-                    Mono("⇄ SCAN THROUGH", style = BackbeeType.monoSmall, color = colors.textPrimary)
+            ScanBar(
+                positionMs = playerState.positionMs,
+                durationMs = playerState.durationMs,
+                onSeek = player::seekTo,
+            )
+
+            Spacer(Modifier.height(Dimens.space3))
+            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.space2)) {
+                BrutalOutlineButton(onClick = player::skipBack, modifier = Modifier.weight(1f)) {
+                    Mono("−10s", style = BackbeeType.mono, color = colors.textPrimary)
                 }
+                BrutalOutlineButton(onClick = player::skipForward, modifier = Modifier.weight(1f)) {
+                    Mono("+30s", style = BackbeeType.mono, color = colors.textPrimary)
+                }
+                BrutalOutlineButton(
+                    onClick = {
+                        val next = PlaybackSpeeds.next(playerState.speed)
+                        player.setSpeed(next)
+                        viewModel.persistSpeed(next)
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Mono(
+                        "${ArchiveProgress.formatSpeed(playerState.speed)}×",
+                        style = BackbeeType.mono,
+                        color = colors.textPrimary,
+                    )
+                }
+            }
+
+            // For an episode already heard somewhere else: one tap finishes it
+            // and moves on, instead of scrubbing to the end or digging through
+            // the archive for the next one.
+            Spacer(Modifier.height(Dimens.space2))
+            BrutalOutlineButton(onClick = { viewModel.markPlayedAndAdvance { player.next() } }) {
+                Mono("✓ MARK PLAYED · NEXT →", style = BackbeeType.monoSmall, color = colors.textPrimary)
             }
         }
 
@@ -227,6 +252,22 @@ fun EpisodeDetailScreen(
             }
         }
 
+        // The description reads before the archive machinery below it: on the
+        // playing episode this page is the player, and "what is this one about"
+        // is asked far more often than "mark three hundred episodes played".
+        state.description?.let { description ->
+            Spacer(Modifier.height(Dimens.space5))
+            BrutalDivider()
+            Spacer(Modifier.height(Dimens.space4))
+            Label("Description")
+            Text(
+                text = stripHtml(description),
+                style = BackbeeType.body,
+                color = colors.textMuted,
+                modifier = Modifier.padding(top = Dimens.space2),
+            )
+        }
+
         Spacer(Modifier.height(Dimens.space5))
         BrutalDivider()
         Spacer(Modifier.height(Dimens.space4))
@@ -260,19 +301,6 @@ fun EpisodeDetailScreen(
             modifier = Modifier.padding(top = Dimens.space2),
         ) {
             Mono("SAVE NOTE", style = BackbeeType.monoSmall, color = colors.textPrimary)
-        }
-
-        state.description?.let { description ->
-            Spacer(Modifier.height(Dimens.space5))
-            BrutalDivider()
-            Spacer(Modifier.height(Dimens.space4))
-            Label("Description")
-            Text(
-                text = stripHtml(description),
-                style = BackbeeType.body,
-                color = colors.textMuted,
-                modifier = Modifier.padding(top = Dimens.space2),
-            )
         }
 
         Spacer(Modifier.height(Dimens.space16))

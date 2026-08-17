@@ -48,7 +48,8 @@ import kotlin.math.sin
  *
  * It lives outside the NavHost, so it survives every tab switch: whatever page
  * you are on, the thing making sound is named, timed, and one tap from being
- * paused. Tapping the bar itself goes back to Now.
+ * paused. Tapping the bar itself opens the playing episode's page - the full
+ * player, with the scan bar and the description.
  */
 @Composable
 fun NowPlayingBar(
@@ -62,6 +63,7 @@ fun NowPlayingBar(
     onOpen: () -> Unit,
     onTogglePlay: () -> Unit,
     onSkipBack: () -> Unit,
+    onSkipForward: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = backbeeColors
@@ -77,7 +79,7 @@ fun NowPlayingBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClickLabel = "Open Now", onClick = onOpen)
+                .clickable(onClickLabel = "Open the playing episode", onClick = onOpen)
                 .padding(horizontal = Dimens.space3, vertical = Dimens.space2),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Dimens.space3),
@@ -128,6 +130,7 @@ fun NowPlayingBar(
                 background = colors.accentPrimary,
                 contentColor = colors.onAccentPrimary,
             )
+            BarKey("+30", contentDescription = "Skip forward thirty seconds", onClick = onSkipForward)
         }
     }
 }
