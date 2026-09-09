@@ -15,3 +15,10 @@
 # through the mapping file, without keeping the original file names.
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# Glance instantiates widget action callbacks by class name at tap time.
+# Its own consumer rules should keep them; this makes sure a shrunk build
+# cannot turn the widget's two buttons into silent no-ops.
+-keep class * implements androidx.glance.appwidget.action.ActionCallback {
+    public <init>();
+}

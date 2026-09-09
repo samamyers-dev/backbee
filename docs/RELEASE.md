@@ -186,12 +186,11 @@ Findings from the pre-release audits that were **not** fixed in code, in
 priority order. None blocks a closed test; the first two are worth doing
 before production.
 
-- **No restore path for the nightly backup.** The app writes
-  `backbee.db.<date>.bak` but nothing reads one back. A customer holding a
-  backup after losing a phone cannot get their place back without `adb`.
-  Android's own cloud backup covers the database on reinstall, which is the
-  mainstream path; a Settings → Restore from backup (pick the file, verify it
-  opens, replace the database, restart) closes the gap for everyone else.
+- **Restore from backup is untested on a device.** Settings → "Restore from
+  a backup file" reads a `.bak`, checks its integrity and tables, shows what
+  is in it, then swaps the database and restarts the process. Walk through it
+  once on a phone (back up, mark a few episodes, restore, confirm they are
+  back) before production.
 - **A dead episode pins Resume.** The player now skips an episode whose
   audio is gone, but the resume target is the lowest unplayed episode with
   an enclosure, so a cold Resume from the widget, Auto or a headset lands on

@@ -27,7 +27,7 @@ class Converters {
         MarkEntity::class,
         DownloadEntity::class,
     ],
-    version = 2,
+    version = BackbeeDatabase.VERSION,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -41,6 +41,13 @@ abstract class BackbeeDatabase : RoomDatabase() {
 
     companion object {
         const val NAME = "backbee.db"
+
+        /**
+         * Bump together with a Migration and a committed schema JSON. Also what
+         * a restore checks a backup against, so a file from a newer app is
+         * refused rather than opened and rejected by Room.
+         */
+        const val VERSION = 2
 
         /**
          * Cascading deletes only fire when foreign keys are switched on, and Room

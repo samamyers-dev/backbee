@@ -15,6 +15,7 @@ import dev.backbee.data.repo.ShowRepository
 import dev.backbee.download.DownloadRepository
 import dev.backbee.download.EpisodeFiles
 import dev.backbee.playback.LocalFileIndex
+import dev.backbee.work.BackupRestorer
 import dev.backbee.work.WorkScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -74,4 +75,6 @@ class AppContainer(context: Context) {
     }
 
     val workScheduler: WorkScheduler by lazy { WorkScheduler(appContext) }
+
+    val backupRestorer: BackupRestorer by lazy { BackupRestorer(appContext) }
 }

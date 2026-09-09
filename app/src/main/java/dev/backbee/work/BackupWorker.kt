@@ -119,9 +119,9 @@ class BackupWorker(
         }
 
         db.query("PRAGMA wal_checkpoint(TRUNCATE)").use { it.moveToFirst() }
-        database.runInTransaction {
-            BackbeeDatabase.fileFor(applicationContext).copyTo(target, overwrite = true)
-        }
+        database.runInTransaction(
+            Runnable { BackbeeDatabase.fileFor(applicationContext).copyTo(target, overwrite = true) }
+        )
     }
 
     /** Keeps a rolling fortnight; a syncing folder keeps its own versions beyond that. */

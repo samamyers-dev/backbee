@@ -84,10 +84,13 @@ Android Auto app. Full instructions in
 
 ## Backup
 
-A nightly `VACUUM INTO` checkpoint of the database is written to a folder you
-pick in Settings. Point it at whatever Syncthing watches and it reaches the home
-server on its own. That is the entire durability story; losing the phone costs
-at most one day of position.
+A nightly snapshot of the database is written to a folder you pick in
+Settings. Point it at a folder that syncs off the phone (Syncthing, a cloud
+drive's folder sync, an SD card) and it leaves the device on its own. Settings
+→ "Restore from a backup file" reads one back: it checks the file, shows what
+is in it, then swaps the database and restarts the app. That is the entire
+durability story; losing the phone costs at most one day of position. Android's
+own backup covers the database as well.
 
 ## Milestones
 

@@ -107,6 +107,11 @@ phone. That is the whole story: no accounts, no sync protocol, no server.
 Losing the phone costs at most one day of position. Android's own backup
 covers the database and the settings DataStore as well.
 
+`BackupRestorer` is the way back: it stages the chosen file in the cache,
+opens it read-only for an integrity check and a look at its tables and
+`user_version`, closes Room, swaps the file (dropping the old `-wal`/`-shm`),
+and restarts the process so nothing holds a handle to the old database.
+
 `VACUUM INTO` needs SQLite 3.27, so below Android 11 the worker checkpoints
 the WAL and copies the main file inside a write transaction instead. For the
 same reason none of the DAO writes use `ON CONFLICT DO UPDATE` (SQLite 3.24):

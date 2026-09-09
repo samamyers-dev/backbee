@@ -26,7 +26,8 @@ Uninstalling the app deletes all of it. If you have Android's backup enabled,
 Android may include the app's database (not the downloaded audio) in your
 Google account's device backup, under Google's own privacy terms. If you
 choose a backup folder in Settings, the app writes a nightly copy of its
-database to that folder and to nowhere else.
+database to that folder and to nowhere else. Restoring reads only the single
+file you pick.
 
 ## Who your device talks to
 

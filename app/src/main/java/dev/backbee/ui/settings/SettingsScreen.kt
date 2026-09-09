@@ -44,8 +44,13 @@ import dev.backbee.ui.theme.backbeeColors
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val restore by viewModel.restore.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val colors = backbeeColors
+
+    val pickBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.inspectBackup(uri)
+    }
 
     // SAF rather than a storage permission: the user picks one folder (a
     // synced folder, an SD card, anything a document provider exposes) and
@@ -191,6 +196,63 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
                         modifier = Modifier.weight(1f),
                     ) {
                         Mono("BACK UP NOW", style = BackbeeType.monoSmall, color = colors.textPrimary)
+                    }
+                }
+
+                // The way back after a lost or replaced phone. The file is read
+                // and checked first; nothing changes until the numbers below
+                // have been looked at and confirmed.
+                BrutalOutlineButton(
+                    onClick = { pickBackup.launch(arrayOf("*/*")) },
+                    enabled = !restore.inspecting && !restore.restoring,
+                    modifier = Modifier.fillMaxWidth().padding(top = Dimens.space2),
+                ) {
+                    Mono(
+                        if (restore.inspecting) "READING BACKUP…" else "RESTORE FROM A BACKUP FILE",
+                        style = BackbeeType.monoSmall,
+                        color = colors.textPrimary,
+                    )
+                }
+                restore.error?.let { error ->
+                    Readout(
+                        lines = listOf("RESTORE: ${error.uppercase()}"),
+                        tone = colors.onInverseAlert,
+                        modifier = Modifier.padding(top = Dimens.space2),
+                    )
+                }
+                restore.preview?.let { preview ->
+                    Readout(
+                        lines = listOf(
+                            "FILE: ${preview.name.uppercase()}",
+                            "${preview.shows} SHOW(S) · ${preview.playedEpisodes} EPISODES PLAYED · ${preview.sizeBytes / 1024} KB",
+                            "THIS REPLACES EVERY POSITION ON THIS PHONE.",
+                            "THE APP RESTARTS WHEN IT IS DONE.",
+                        ),
+                        tone = colors.onInverseAlert,
+                        modifier = Modifier.padding(top = Dimens.space2),
+                    )
+                    Row(
+                        Modifier.padding(top = Dimens.space2),
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.space2),
+                    ) {
+                        BrutalOutlineButton(
+                            onClick = viewModel::cancelRestore,
+                            enabled = !restore.restoring,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Mono("KEEP WHAT I HAVE", style = BackbeeType.monoSmall, color = colors.textPrimary)
+                        }
+                        BrutalOutlineButton(
+                            onClick = viewModel::confirmRestore,
+                            enabled = !restore.restoring,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Mono(
+                                if (restore.restoring) "RESTORING…" else "RESTORE AND RESTART",
+                                style = BackbeeType.monoSmall,
+                                color = colors.textAlert,
+                            )
+                        }
                     }
                 }
             }
