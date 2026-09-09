@@ -102,9 +102,16 @@ be 1,500 rows and stitching relations per item would be slower for no gain.
 ## Durability
 
 A nightly `VACUUM INTO` writes a consistent snapshot to a folder chosen through
-the Storage Access Framework — point it at whatever Syncthing watches. That is
-the whole story: no accounts, no sync protocol, no server. Losing the phone
-costs at most one day of position.
+the Storage Access Framework — point it at a folder something syncs off the
+phone. That is the whole story: no accounts, no sync protocol, no server.
+Losing the phone costs at most one day of position. Android's own backup
+covers the database and the settings DataStore as well.
+
+`VACUUM INTO` needs SQLite 3.27, so below Android 11 the worker checkpoints
+the WAL and copies the main file inside a write transaction instead. For the
+same reason none of the DAO writes use `ON CONFLICT DO UPDATE` (SQLite 3.24):
+every upsert is `INSERT OR IGNORE` followed by `UPDATE`, which runs on every
+supported release.
 
 SAF rather than a storage permission, and a copy through `ContentResolver`
 rather than a direct path, because `VACUUM INTO` needs a real filesystem target

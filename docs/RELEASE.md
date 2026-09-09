@@ -144,3 +144,79 @@ and resource shrinking work.
 - [ ] Privacy policy is live at the URL in the store listing.
 - [ ] Screenshots taken from the release build on a phone (Play wants at
       least two, 16:9 or 9:16, 320–3840 px on each side).
+
+## Launch sequence for a personal Play account
+
+A personal developer account created after 13 November 2023 cannot publish
+to production until the app has run a closed test with **at least 12
+testers opted in for 14 consecutive days**. Everything below is ordered
+around that clock.
+
+1. **Day 0 - account and app.** Play Console account, identity
+   verification, payments profile (paid apps need it before pricing can be
+   set). Create the app, complete the store listing and every App content
+   declaration from [PLAY_STORE.md](PLAY_STORE.md). Enable Play App Signing.
+2. **Day 0 - first bundle.** Tag `v1.0.0`. Upload the bundle from the
+   Release workflow to the **Internal testing** track and install it on your
+   own phone from the Play link, so the very first install is the Play-built,
+   Play-signed artifact rather than a sideload.
+3. **Day 1 - closed test.** Create a **Closed testing** track, add an email
+   list of testers (12 is the floor; recruit 15-20 so drop-outs do not reset
+   anything), promote the internal build to it, and send the opt-in link.
+   Testers must stay opted in and keep the app installed; the 14 days count
+   only while the tester count stays at or above 12.
+4. **Days 1-14 - iterate.** Every fix is a new tag and a new closed-track
+   release; that does not restart the clock. Read Android Vitals daily for
+   crashes and ANRs, and the closed testers' feedback in the Console.
+5. **Day 15 - apply for production access.** The Console asks what was
+   tested and what changed. Answer from the closed-track release notes.
+   Approval typically takes a few days.
+6. **Production.** Promote the closed build (or tag a fresh one) to
+   production. If Android Auto is declared, expect the car-app quality review
+   on top of the standard one; it can take a week or more and it holds every
+   later update until it passes, so ship the Auto build first and let it
+   clear before planning 1.0.1.
+
+Total: roughly three to four weeks from account creation to a live paid
+listing, most of it waiting.
+
+## Known gaps to close before or shortly after 1.0
+
+Findings from the pre-release audits that were **not** fixed in code, in
+priority order. None blocks a closed test; the first two are worth doing
+before production.
+
+- **No restore path for the nightly backup.** The app writes
+  `backbee.db.<date>.bak` but nothing reads one back. A customer holding a
+  backup after losing a phone cannot get their place back without `adb`.
+  Android's own cloud backup covers the database on reinstall, which is the
+  mainstream path; a Settings → Restore from backup (pick the file, verify it
+  opens, replace the database, restart) closes the gap for everyone else.
+- **A dead episode pins Resume.** The player now skips an episode whose
+  audio is gone, but the resume target is the lowest unplayed episode with
+  an enclosure, so a cold Resume from the widget, Auto or a headset lands on
+  it again until it is marked played by hand. Fix needs a schema change
+  (mark episodes unplayable) and therefore a Room migration.
+- **Auto-play on Bluetooth on Android 12+.** Starting playback from an audio
+  device callback is a background start with no foreground-service
+  exemption. Media3 catches the exception and playback carries on
+  un-foregrounded until the OS kills the process. The setting is off by
+  default; consider hiding it on API 31+ or documenting it as best-effort.
+- **Podcast Index secret ships inside the APK.** Needed on-device to sign
+  requests, so it is extractable. It is a free-tier key: monitor for abuse
+  and rotate through an app update, or front it with a tiny proxy later.
+- **Only `2.json` is committed for the Room schema; `1.json` never was.** The
+  1→2 migration cannot be covered by a `MigrationTestHelper` test. Nothing
+  has shipped, so collapsing to version 1 before the first upload is an
+  option; otherwise regenerate `1.json` from commit `bba21c6^`.
+- **Screenshots.** Play needs at least two phone screenshots from a real
+  device or emulator; the CI-rendered component images are not screens.
+- **Accessibility.** Episode-row state glyphs carry no `stateDescription`,
+  the scan bar has no accessibility seek action, and a few Settings controls
+  are under 48 dp. TalkBack users can use the app but not comfortably.
+- **English only.** Roughly 300 UI strings live in Kotlin rather than
+  resources. Fine for launch; a deliberate choice to revisit if a second
+  language is ever wanted.
+- **No UI tests for playback.** `PositionWriter`, `PlaybackCoordinator` and
+  the download worker have no automated coverage; the device checklist
+  above is what stands in for it.
