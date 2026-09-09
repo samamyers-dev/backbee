@@ -107,6 +107,7 @@ fun NowScreen(
             state = state,
             playerState = playerState,
             player = player,
+            skipSeconds = skipSeconds,
             onOpenArchive = onOpenArchive,
             onOpenCompletion = onOpenCompletion,
             onCycleSpeed = { viewModel.setSpeed(PlaybackSpeeds.next(state.show?.speed ?: 1f)) },
@@ -124,6 +125,8 @@ private fun SpineNow(
     state: NowUiState,
     playerState: PlayerState,
     player: PlayerConnection,
+    /** Skip back and skip forward in seconds, for the key labels. */
+    skipSeconds: Pair<Int, Int>,
     onOpenArchive: () -> Unit,
     onOpenCompletion: (Long) -> Unit,
     onCycleSpeed: () -> Unit,

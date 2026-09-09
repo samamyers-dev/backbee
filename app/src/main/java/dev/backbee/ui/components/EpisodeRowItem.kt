@@ -13,6 +13,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -95,27 +97,37 @@ fun EpisodeRowItem(
                 .padding(start = Dimens.space2)
                 .width(56.dp),
         ) {
-            if (row.isStarred) GlyphText(Glyph.STARRED, colors.textAccent)
+            // Each glyph carries the words it stands for. The row merges its
+            // children for a screen reader, so "Starred" and "Played" are read
+            // with the title rather than as "black star" and "check mark".
+            if (row.isStarred) GlyphText(Glyph.STARRED, colors.textAccent, Modifier.spoken("Starred"))
 
             // Exactly one state glyph. "Downloaded" and "untouched" are not two
             // facts to stack up - a downloaded episode is by definition one you
             // have not played yet, and showing both just adds noise to a list
             // meant to be read while scrolling past a thousand rows.
             when {
-                row.isPlayed -> GlyphText(Glyph.PLAYED, colors.textMuted)
-                isPlaying -> GlyphText(Glyph.PLAYING, colors.textAccent)
+                row.isPlayed -> GlyphText(Glyph.PLAYED, colors.textMuted, Modifier.spoken("Played"))
+                isPlaying -> GlyphText(Glyph.PLAYING, colors.textAccent, Modifier.spoken("Playing now"))
                 row.downloadState == DownloadState.FAILED ->
-                    GlyphText(Glyph.FAILED, colors.textAlert)
-                row.progressFraction != null -> GlyphText(Glyph.PLAYING, colors.textSecondary)
-                row.isDownloaded -> GlyphText(Glyph.DOWNLOADED, colors.textFunctional)
+                    GlyphText(Glyph.FAILED, colors.textAlert, Modifier.spoken("Download failed"))
+                row.progressFraction != null -> GlyphText(
+                    Glyph.PLAYING,
+                    colors.textSecondary,
+                    Modifier.spoken("${((row.progressFraction ?: 0f) * 100).toInt()} percent heard"),
+                )
+                row.isDownloaded -> GlyphText(Glyph.DOWNLOADED, colors.textFunctional, Modifier.spoken("On device"))
                 row.downloadState == DownloadState.RUNNING ||
                     row.downloadState == DownloadState.QUEUED ->
-                    GlyphText(Glyph.DOWNLOADED, colors.textMuted)
-                else -> GlyphText(Glyph.UNTOUCHED, colors.textMuted)
+                    GlyphText(Glyph.DOWNLOADED, colors.textMuted, Modifier.spoken("Downloading"))
+                else -> GlyphText(Glyph.UNTOUCHED, colors.textMuted, Modifier.spoken("Not started"))
             }
         }
     }
 }
+
+/** The glyph is decoration to a screen reader; this is what it says instead. */
+private fun Modifier.spoken(label: String): Modifier = clearAndSetSemantics { contentDescription = label }
 
 /** `14 MAR 2021 · 26:41 / 1H 18M` - date, then position within duration. */
 private fun metaLine(row: EpisodeRow): String {
