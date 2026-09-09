@@ -35,7 +35,8 @@ docs/     PHASE0.md, ARCHITECTURE.md, ANDROID_AUTO.md
 Open in Android Studio and run, or:
 
 ```bash
-./gradlew :app:assembleDebug
+./gradlew :app:assembleDebug     # installable debug build
+./gradlew :app:bundleRelease     # the Play bundle; unsigned unless a keystore is configured
 ```
 
 `:core` and `:phase0` are plain JVM modules and build anywhere a JDK 17+ exists:
@@ -110,18 +111,14 @@ trimming, chapters, cross-show playlists, new-episode notifications, video.
 v1.5 candidates: loudness normalisation, chapters, sleep timer, OPML
 import/export, per-episode speed override.
 
-## Getting an APK onto a phone
+## Getting a build onto a phone
 
-**[Download the latest debug build](https://github.com/samamyers-dev/backbee/releases/download/debug-latest/backbee-debug.apk)**
-
-Open that link on the phone and tap it. Android will ask you to allow "Install
-unknown apps" for whichever browser you used, then install. No sign-in, no zip,
-no file manager.
-
-CI republishes that same URL on every green build, so it is always the newest
-passing APK. Builds that compile but fail their tests do not reach it - those
-are still available as the `backbee-debug-apk` artifact on the run itself,
-which needs a GitHub sign-in and arrives as a zip.
+Every green CI run on any branch keeps two artifacts for a fortnight, both
+behind a GitHub sign-in: `backbee-debug-apk` (installable, `dev.backbee.debug`)
+and `backbee-release-unsigned` (the R8-shrunk release build and bundle, for
+checking that the release configuration works; unsigned, so not installable).
+Signed, installable release builds come only from the Release workflow - see
+[docs/RELEASE.md](docs/RELEASE.md).
 
 Locally, with Android Studio or a configured SDK:
 
@@ -133,6 +130,13 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 The debug build uses the `dev.backbee.debug` application id, so it installs
 alongside a release build rather than replacing it.
 
+## Releasing
+
+The app is sold on Google Play. `docs/RELEASE.md` is the runbook (keystore,
+secrets, tagging, tracks), `docs/PLAY_STORE.md` holds the listing copy, the
+data-safety answers and the graphic assets, and `docs/PRIVACY.md` is the
+privacy policy the listing links to.
+
 ## Test status
 
 `:core` — 54 tests, all passing. This is where the logic that is expensive to
@@ -140,8 +144,9 @@ get wrong lives: feed parsing against malformed real-world XML, paged archive
 walking, the Phase 0 verdict rules, smart-resume tiers, progress formatting, and
 download planning including storage-cap eviction.
 
-`:app` — compiles and assembles on CI; `BackbeeDatabaseTest` covers the SQL the
-rest of the app depends on. Nothing in `:app` can be built in the development
+`:app` — compiles and assembles on CI in both the debug and the shrunk release
+configuration; `BackbeeDatabaseTest` covers the SQL the rest of the app depends
+on. Nothing in `:app` can be built in the development
 container used to write it (Google's Maven host and the Android SDK endpoint are
 both unreachable there), so the GitHub Actions build is the authority on whether
 the Android module is sound.
