@@ -17,10 +17,13 @@ import kotlinx.coroutines.withContext
 
 /**
  * The entire durability story: a nightly consistent snapshot of the database
- * dropped into a Syncthing-watched folder, which carries it to the home server.
+ * dropped into a folder the user chose - ideally one that something (Syncthing,
+ * a cloud drive's folder sync, an SD card) carries off the phone.
  *
  * Phone loss costs at most one day of position. That is the whole design - no
- * accounts, no sync protocol, no server to run.
+ * accounts, no sync protocol, no server to run. Android's own cloud backup
+ * covers the database too (see backup_rules.xml); this is the copy the user
+ * can see and keep.
  */
 class BackupWorker(
     context: Context,
@@ -81,7 +84,7 @@ class BackupWorker(
         }
     }
 
-    /** Keeps a rolling fortnight. Syncthing keeps its own versions beyond that. */
+    /** Keeps a rolling fortnight; a syncing folder keeps its own versions beyond that. */
     private fun pruneOldBackups(folder: DocumentFile) {
         val backups = folder.listFiles()
             .filter { it.name?.startsWith(BackbeeDatabase.NAME) == true && it.name?.endsWith(".bak") == true }

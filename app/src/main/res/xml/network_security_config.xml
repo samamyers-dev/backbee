@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Podcast archives are old. A show that started in 2008 has enclosure URLs
+  and feed redirects on plain http://, and publishers rarely go back to fix
+  them. Since targetSdk 28 Android refuses cleartext by default, which would
+  make exactly the oldest episodes - the ones this app exists for - fail to
+  play or download with "not permitted by network security policy".
+
+  The URLs are all the user's own choice (a feed they pasted or picked from
+  search), no credentials ever travel over them, and the directory calls
+  (iTunes, Podcast Index) are https regardless. So cleartext is allowed
+  everywhere rather than per-domain, which cannot be enumerated in advance.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

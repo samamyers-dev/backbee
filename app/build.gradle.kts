@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,25 +7,64 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// Release identity. Play refuses an upload whose versionCode is not strictly
+// greater than the last one it saw, so the number must come from somewhere
+// that only ever counts up: the release workflow passes -PversionCode (see
+// .github/workflows/release.yml and docs/RELEASE.md). versionName comes from
+// the git tag the same way. A local build without either is "1 / 1.0.0-dev",
+// which is fine for a debug install and impossible to upload by accident.
+val releaseVersionCode: Int = (findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
+val releaseVersionName: String =
+    (findProperty("versionName") as String?)?.takeIf { it.isNotBlank() } ?: "1.0.0-dev"
+
+// The upload keystore is never in the repository. The release workflow decodes
+// it from a secret into a temporary file and hands over the path and passwords
+// through the environment; a developer machine can do the same through
+// ~/.gradle/gradle.properties. When neither is present the release build type
+// still assembles - unsigned - so CI can prove R8 and resource shrinking work
+// on every push without holding the key.
+fun secret(env: String, property: String): String? =
+    System.getenv(env)?.takeIf { it.isNotBlank() } ?: (findProperty(property) as String?)?.takeIf { it.isNotBlank() }
+
+val uploadKeystore: File? = secret("BACKBEE_KEYSTORE_PATH", "backbeeKeystorePath")
+    ?.let(::file)
+    ?.takeIf { it.isFile }
+
 android {
     namespace = "dev.backbee"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "dev.backbee"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // Google Play: new apps and updates must target API 36 from 31 Aug 2026.
+        targetSdk = 36
+        versionCode = releaseVersionCode
+        versionName = releaseVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Optional Podcast Index credentials. Put them in ~/.gradle/gradle.properties
-        // (podcastIndexKey / podcastIndexSecret) rather than in the repository.
-        // Without them the app works from feeds alone; with them, a truncated
-        // archive can be completed from the directory.
+        // (podcastIndexKey / podcastIndexSecret) rather than in the repository; the
+        // release workflow passes them in from secrets. Without them the app works
+        // from feeds alone; with them, a truncated archive can be completed from
+        // the directory.
         buildConfigField("String", "PODCAST_INDEX_KEY", "\"${properties["podcastIndexKey"] ?: ""}\"")
         buildConfigField("String", "PODCAST_INDEX_SECRET", "\"${properties["podcastIndexSecret"] ?: ""}\"")
+    }
+
+    signingConfigs {
+        create("release") {
+            if (uploadKeystore != null) {
+                storeFile = uploadKeystore
+                storePassword = secret("BACKBEE_KEYSTORE_PASSWORD", "backbeeKeystorePassword")
+                keyAlias = secret("BACKBEE_KEY_ALIAS", "backbeeKeyAlias") ?: "upload"
+                keyPassword = secret("BACKBEE_KEY_PASSWORD", "backbeeKeyPassword")
+                    ?: secret("BACKBEE_KEYSTORE_PASSWORD", "backbeeKeystorePassword")
+                enableV1Signing = true
+                enableV2Signing = true
+            }
+        }
     }
 
     buildTypes {
@@ -35,24 +76,16 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Null when no keystore is configured: the artifact is then unsigned,
+            // which Gradle reports plainly rather than falling back to the debug
+            // key and producing something that looks shippable but is not.
+            signingConfig = if (uploadKeystore != null) signingConfigs.getByName("release") else null
         }
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
-        freeCompilerArgs = freeCompilerArgs + listOf(
-            // Most of Media3 that a real player touches - ExoPlayer itself,
-            // MediaLibraryService, the data-source factories - is annotated
-            // @UnstableApi, which is a RequiresOptIn at ERROR level. Opting in
-            // once here beats annotating every playback class.
-            "-opt-in=androidx.media3.common.util.UnstableApi",
-            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
-        )
     }
 
     buildFeatures {
@@ -62,6 +95,16 @@ android {
 
     packaging {
         resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}")
+    }
+
+    lint {
+        // lintVital runs inside every release build and fails it on fatal
+        // issues; that is the gate. The full lint pass is advisory - CI runs
+        // it and publishes the report rather than blocking on style findings.
+        abortOnError = false
+        checkReleaseBuilds = true
+        htmlReport = true
+        textReport = true
     }
 
     testOptions {
@@ -74,6 +117,20 @@ android {
                 it.systemProperty("roborazzi.test.record", "true")
             }
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
+        freeCompilerArgs.addAll(
+            // Most of Media3 that a real player touches - ExoPlayer itself,
+            // MediaLibraryService, the data-source factories - is annotated
+            // @UnstableApi, which is a RequiresOptIn at ERROR level. Opting in
+            // once here beats annotating every playback class.
+            "-opt-in=androidx.media3.common.util.UnstableApi",
+            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+        )
     }
 }
 

@@ -31,7 +31,7 @@ data class Settings(
     val autoPlayOnBluetooth: Boolean = false,
     val skipForwardSeconds: Int = 30,
     val skipBackSeconds: Int = 10,
-    /** SAF tree URI of the Syncthing-watched folder the nightly checkpoint writes to. */
+    /** SAF tree URI of the folder the nightly backup writes to. Ideally one that syncs off the phone. */
     val backupFolderUri: String? = null,
     val backupEnabled: Boolean = true,
 ) {

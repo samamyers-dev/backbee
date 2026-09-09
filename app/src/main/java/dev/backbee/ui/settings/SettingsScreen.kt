@@ -45,8 +45,9 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
     val context = LocalContext.current
     val colors = backbeeColors
 
-    // SAF rather than a storage permission: point at the folder Syncthing
-    // already watches, and nothing else on the device is touched.
+    // SAF rather than a storage permission: the user picks one folder (a
+    // synced folder, an SD card, anything a document provider exposes) and
+    // nothing else on the device is touched.
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             context.contentResolver.takePersistableUriPermission(
@@ -158,14 +159,14 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
             BrutalPanel(Modifier.fillMaxWidth()) {
                 Label("Backup")
                 Mono(
-                    "A NIGHTLY DB SNAPSHOT GOES TO A FOLDER YOU CHOOSE. POINT IT AT " +
-                        "WHATEVER SYNCTHING WATCHES AND LOSING THE PHONE COSTS AT MOST A DAY.",
+                    "EVERY NIGHT A COPY OF YOUR PLACE IN EVERY ARCHIVE GOES TO A FOLDER YOU " +
+                        "CHOOSE. PICK ONE THAT SYNCS OFF THE PHONE AND LOSING IT COSTS AT MOST A DAY.",
                     style = BackbeeType.monoMicro,
                     color = colors.textMuted,
                     modifier = Modifier.padding(vertical = Dimens.space2),
                 )
                 SwitchRow(
-                    "Nightly checkpoint",
+                    "Nightly backup",
                     if (state.settings.backupFolderUri != null) "FOLDER SELECTED" else "NO FOLDER CHOSEN YET",
                     state.settings.backupEnabled,
                     viewModel::setBackupEnabled,
@@ -195,9 +196,9 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
             Readout(
                 lines = listOfNotNull(
                     diag.lastCheckpointAtMillis?.let {
-                        "DB CHECKPOINT: ${RelativeTime.since(it, System.currentTimeMillis())} // " +
+                        "LAST BACKUP: ${RelativeTime.since(it, System.currentTimeMillis())} // " +
                             (diag.lastCheckpointResult ?: "UNKNOWN")
-                    } ?: "DB CHECKPOINT: NEVER RUN",
+                    } ?: "LAST BACKUP: NEVER RUN",
                     diag.lastFeedRefreshAtMillis?.let {
                         "FEED REFRESH: ${RelativeTime.since(it, System.currentTimeMillis())}"
                     } ?: "FEED REFRESH: NOT YET",
