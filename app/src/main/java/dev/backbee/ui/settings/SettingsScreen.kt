@@ -10,6 +10,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -345,6 +347,7 @@ private fun Stepper(label: String, value: String, onDown: () -> Unit, onUp: () -
 @Composable
 private fun StepKey(symbol: String, onClick: () -> Unit) {
     val colors = backbeeColors
+    // A full thumb-sized target. The glyph is small; the key is not.
     Mono(
         text = symbol,
         style = BackbeeType.mono,
@@ -352,6 +355,8 @@ private fun StepKey(symbol: String, onClick: () -> Unit) {
         modifier = Modifier
             .background(colors.bgInverse.copy(alpha = 0.12f))
             .clickable(onClick = onClick)
+            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+            .wrapContentSize()
             .padding(horizontal = 16.dp, vertical = 8.dp),
     )
 }

@@ -10,9 +10,11 @@ import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import dev.backbee.BackbeeApp
+import dev.backbee.R
 import androidx.glance.appwidget.updateAll
 import dev.backbee.data.net.Http
 import dev.backbee.ui.MainActivity
@@ -77,6 +79,14 @@ class PlaybackService : MediaLibraryService() {
                 }
             },
             onArchiveCompleted = { showId -> Log.i(TAG, "Archive $showId complete") },
+        )
+
+        // The status-bar icon is the one piece of the app on screen all day;
+        // Media3's default is a generic play glyph.
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this).build().apply {
+                setSmallIcon(R.drawable.ic_stat_backbee)
+            }
         )
 
         session = MediaLibrarySession.Builder(

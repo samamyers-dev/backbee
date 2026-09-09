@@ -139,7 +139,7 @@ fun ArchiveScreen(
             EmptyState(
                 title = if (state.searching) "No matches" else "No episodes yet",
                 body = if (state.searching) "Nothing in this archive matches \"${state.query}\"."
-                else "Pull the feed from the shelf to fill the archive.",
+                else "The feed has not been read yet. Settings → CHECK FEEDS NOW fills the archive.",
             )
             return@Column
         }
