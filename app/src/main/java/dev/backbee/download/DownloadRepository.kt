@@ -10,6 +10,7 @@ import dev.backbee.data.db.DownloadEntity
 import dev.backbee.data.db.DownloadState
 import dev.backbee.data.db.LocalFileRow
 import dev.backbee.data.prefs.SettingsStore
+import java.io.File
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -38,7 +39,7 @@ class DownloadRepository(
             DownloadConfig(
                 downloadAhead = it.downloadAhead,
                 deletePlayedAfterMillis = it.deletePlayedAfterMillis,
-                storageCapBytes = it.storageCapBytes,
+                storageCapBytes = effectiveCap(it.storageCapBytes),
             )
         }
 
@@ -57,6 +58,19 @@ class DownloadRepository(
 
         return DownloadPlanner(config)
             .plan(slots, currentOrderIndex, System.currentTimeMillis(), loadedEpisodeId)
+    }
+
+    /**
+     * The user's cap, or the space actually left on the phone, whichever is
+     * smaller. An 8 GB cap on a phone with 3 GB free would otherwise be filled
+     * until the camera stopped working; WorkManager's storage-not-low constraint
+     * only stops the next run, not the current one. A gigabyte stays free for
+     * everything else.
+     */
+    private suspend fun effectiveCap(userCapBytes: Long): Long {
+        val onDisk = downloadDao.bytesOnDisk()
+        val fromFreeSpace = onDisk + files.availableBytes() - FREE_SPACE_HEADROOM_BYTES
+        return minOf(userCapBytes, fromFreeSpace).coerceAtLeast(0L)
     }
 
     /**
@@ -136,10 +150,28 @@ class DownloadRepository(
     }
 
     /**
-     * Drops audio the database no longer references. File and row can drift
-     * apart if the process dies between writing one and committing the other;
-     * this runs with the nightly job to reconcile them.
+     * Makes the download table and the disk agree, in both directions.
+     *
+     * A file without a row is dropped, and a DONE row without a file is
+     * forgotten so the episode is fetched again rather than shown as "on
+     * device" forever. The two drift apart when the process dies between
+     * writing one and committing the other, when the user clears storage, and
+     * after a restore of the database onto a fresh phone.
      */
+    suspend fun reconcileWithDisk() {
+        var forgotten = 0
+        for (row in downloadDao.done()) {
+            val path = row.filePath
+            if (path == null || !File(path).isFile) {
+                downloadDao.delete(row.episodeId)
+                forgotten++
+            }
+        }
+        if (forgotten > 0) Log.i(TAG, "Forgot $forgotten download(s) whose file is gone")
+        sweepOrphans()
+    }
+
+    /** Drops audio the database no longer references. */
     suspend fun sweepOrphans() {
         val known = downloadDao.allFilePaths().toSet()
         val removed = files.deleteOrphans(known)
@@ -151,6 +183,7 @@ class DownloadRepository(
 
         /** ~64 kbps, a common spoken-word encode. */
         private const val ASSUMED_BYTES_PER_SECOND = 8_000L
+        private const val FREE_SPACE_HEADROOM_BYTES = 1024L * 1024 * 1024
         private const val FALLBACK_EPISODE_BYTES = 40L * 1024 * 1024
     }
 }

@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -56,6 +57,11 @@ class EpisodeDetailViewModel(
                 bulk = bulk,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), EpisodeDetailUiState())
+
+    /** Skip back and skip forward, in seconds, for the transport key labels. */
+    val skipSeconds: StateFlow<Pair<Int, Int>> = container.settingsStore.settings
+        .map { it.skipBackSeconds to it.skipForwardSeconds }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 10 to 30)
 
     init {
         viewModelScope.launch { _description.value = playback.description(episodeId) }

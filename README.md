@@ -42,7 +42,7 @@ Open in Android Studio and run, or:
 `:core` and `:phase0` are plain JVM modules and build anywhere a JDK 17+ exists:
 
 ```bash
-./gradlew :core:test          # 54 tests, no Android SDK required
+./gradlew :core:test          # 65 tests, no Android SDK required
 ./gradlew :phase0:installDist
 ```
 
@@ -139,7 +139,7 @@ privacy policy the listing links to.
 
 ## Test status
 
-`:core` — 54 tests, all passing. This is where the logic that is expensive to
+`:core` — 65 tests, all passing. This is where the logic that is expensive to
 get wrong lives: feed parsing against malformed real-world XML, paged archive
 walking, the Phase 0 verdict rules, smart-resume tiers, progress formatting, and
 download planning including storage-cap eviction.

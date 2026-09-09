@@ -7,6 +7,7 @@ import dev.backbee.data.db.ShowEntity
 import dev.backbee.data.prefs.DiagnosticsSnapshot
 import dev.backbee.data.prefs.Settings
 import dev.backbee.di.AppContainer
+import dev.backbee.playback.PlayerConnection
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -20,7 +21,10 @@ data class SettingsUiState(
     val diagnostics: DiagnosticsSnapshot = DiagnosticsSnapshot(),
 )
 
-class SettingsViewModel(private val container: AppContainer) : ViewModel() {
+class SettingsViewModel(
+    private val container: AppContainer,
+    private val player: PlayerConnection,
+) : ViewModel() {
 
     val state: StateFlow<SettingsUiState> = combine(
         container.settingsStore.settings,
@@ -33,7 +37,14 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     // -- Per-show -----------------------------------------------------------
 
-    fun setShowSpeed(speed: Float) = updateShow { it.copy(speed = speed.coerceIn(0.5f, 4f)) }
+    fun setShowSpeed(speed: Float) {
+        val clamped = speed.coerceIn(0.5f, 4f)
+        // Applies to audio already in flight, exactly as the speed key on Now
+        // does; a setting that only takes effect on the next episode is a bug.
+        val show = state.value.activeShow
+        if (show != null && player.state.value.showId == show.id) player.setSpeed(clamped)
+        updateShow { it.copy(speed = clamped) }
+    }
 
     fun setSkipIntro(seconds: Int) = updateShow { it.copy(skipIntroSeconds = seconds.coerceIn(0, 600)) }
 

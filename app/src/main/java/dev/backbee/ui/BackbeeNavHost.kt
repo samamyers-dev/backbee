@@ -32,6 +32,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import dev.backbee.data.prefs.Settings
 import dev.backbee.di.AppContainer
 import dev.backbee.playback.PlayerConnection
 import dev.backbee.ui.archive.ArchiveScreen
@@ -85,6 +86,9 @@ fun BackbeeNavHost(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val playerState by player.state.collectAsStateWithLifecycle()
+    // The bar's skip keys are labelled with the configured increments, so
+    // they cannot say "−10" while the setting says fifteen.
+    val settings by container.settingsStore.settings.collectAsStateWithLifecycle(initialValue = Settings())
     val colors = backbeeColors
 
     Column(modifier.fillMaxSize().background(colors.bgPage)) {
@@ -115,7 +119,7 @@ fun BackbeeNavHost(
                 }
 
                 composable(Routes.SHELF) {
-                    val vm: ShelfViewModel = viewModel(factory = viewModelFactory { ShelfViewModel(container) })
+                    val vm: ShelfViewModel = viewModel(factory = viewModelFactory { ShelfViewModel(container, player) })
                     ShelfScreen(
                         viewModel = vm,
                         onOpenCompletion = { navController.navigate(Routes.completion(it)) },
@@ -156,7 +160,7 @@ fun BackbeeNavHost(
                 }
 
                 composable(Routes.SETTINGS) {
-                    val vm: SettingsViewModel = viewModel(factory = viewModelFactory { SettingsViewModel(container) })
+                    val vm: SettingsViewModel = viewModel(factory = viewModelFactory { SettingsViewModel(container, player) })
                     SettingsScreen(viewModel = vm)
                 }
 
@@ -192,6 +196,8 @@ fun BackbeeNavHost(
                 durationMs = playerState.durationMs,
                 isPlaying = playerState.isPlaying,
                 isBuffering = playerState.isBuffering,
+                skipBackSeconds = settings.skipBackSeconds,
+                skipForwardSeconds = settings.skipForwardSeconds,
                 onOpen = {
                     // The bar is the way back to the playing episode's page from
                     // anywhere. Only when nothing identifies the episode does it

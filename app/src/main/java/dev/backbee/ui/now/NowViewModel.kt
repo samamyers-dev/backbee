@@ -132,6 +132,11 @@ class NowViewModel(
 
     private val resumeReadout = MutableStateFlow("")
 
+    /** Skip back and skip forward, in seconds, for the transport key labels. */
+    val skipSeconds: StateFlow<Pair<Int, Int>> = container.settingsStore.settings
+        .map { it.skipBackSeconds to it.skipForwardSeconds }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 10 to 30)
+
     init {
         viewModelScope.launch {
             activeShow.map { it?.id }.distinctUntilChanged().collect { showId ->

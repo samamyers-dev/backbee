@@ -60,6 +60,8 @@ fun NowPlayingBar(
     durationMs: Long,
     isPlaying: Boolean,
     isBuffering: Boolean,
+    skipBackSeconds: Int = 10,
+    skipForwardSeconds: Int = 30,
     onOpen: () -> Unit,
     onTogglePlay: () -> Unit,
     onSkipBack: () -> Unit,
@@ -119,7 +121,7 @@ fun NowPlayingBar(
                 )
             }
 
-            BarKey("−10", contentDescription = "Skip back ten seconds", onClick = onSkipBack)
+            BarKey("−$skipBackSeconds", contentDescription = "Skip back $skipBackSeconds seconds", onClick = onSkipBack)
             BarKey(
                 label = if (isPlaying) "❚❚" else "▶",
                 // The glyph is a typographic stand-in for an icon; read aloud it
@@ -130,7 +132,7 @@ fun NowPlayingBar(
                 background = colors.accentPrimary,
                 contentColor = colors.onAccentPrimary,
             )
-            BarKey("+30", contentDescription = "Skip forward thirty seconds", onClick = onSkipForward)
+            BarKey("+$skipForwardSeconds", contentDescription = "Skip forward $skipForwardSeconds seconds", onClick = onSkipForward)
         }
     }
 }

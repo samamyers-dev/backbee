@@ -1,6 +1,7 @@
 package dev.backbee.ui.settings
 
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -24,6 +25,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.backbee.BuildConfig
 import dev.backbee.core.playback.ArchiveProgress
 import dev.backbee.core.playback.RelativeTime
 import dev.backbee.core.playback.ResumeTier
@@ -50,10 +52,15 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
     // nothing else on the device is touched.
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
-            context.contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-            )
+            // Some providers hand out a tree without a persistable grant and
+            // throw here; the folder is then only good for this session, which
+            // the nightly job reports as "not writable" rather than crashing now.
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            }
             viewModel.setBackupFolder(uri.toString())
         }
     }
@@ -214,6 +221,33 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Mono("CHECK FEEDS NOW", style = BackbeeType.monoSmall, color = colors.textPrimary)
+            }
+        }
+
+        item {
+            BrutalPanel(Modifier.fillMaxWidth()) {
+                Label("About")
+                Mono(
+                    "BACKBEE ${BuildConfig.VERSION_NAME.uppercase()} · BUILD ${BuildConfig.VERSION_CODE}",
+                    style = BackbeeType.monoSmall,
+                    color = colors.textPrimary,
+                    modifier = Modifier.padding(top = Dimens.space2),
+                )
+                Mono(
+                    "NO ACCOUNTS. NO ANALYTICS. NOTHING ABOUT WHAT YOU LISTEN TO LEAVES THIS PHONE.",
+                    style = BackbeeType.monoMicro,
+                    color = colors.textMuted,
+                    modifier = Modifier.padding(vertical = Dimens.space2),
+                )
+                BrutalOutlineButton(
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(BuildConfig.PRIVACY_POLICY_URL)))
+                        }
+                    },
+                ) {
+                    Mono("PRIVACY POLICY", style = BackbeeType.monoSmall, color = colors.textPrimary)
+                }
             }
         }
     }

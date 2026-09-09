@@ -20,6 +20,8 @@ data class PlayerState(
     val isPlaying: Boolean = false,
     val isBuffering: Boolean = false,
     val episodeId: Long? = null,
+    /** The show the loaded episode belongs to, so the shelf can tell whether it is the one playing. */
+    val showId: Long? = null,
     val title: String? = null,
     /** "Ep 512" - the archive position, set by [MediaItems.forEpisode]. */
     val subtitle: String? = null,
@@ -135,6 +137,17 @@ class PlayerConnection(
         controller?.seekToNextMediaItem()
     }
 
+    /**
+     * Stops and empties the player. For when the show it is playing is removed
+     * or another show takes its place: audio from a show that is no longer on
+     * the shelf, or no longer the active one, is worse than silence.
+     */
+    fun stopAndClear() {
+        val controller = controller ?: return
+        controller.stop()
+        controller.clearMediaItems()
+    }
+
     // -- State --------------------------------------------------------------
 
     private fun startTicker() {
@@ -161,6 +174,7 @@ class PlayerConnection(
             isPlaying = controller.isPlaying,
             isBuffering = controller.playbackState == Player.STATE_BUFFERING,
             episodeId = MediaItems.episodeIdOf(controller.currentMediaItem),
+            showId = MediaItems.showIdOf(controller.currentMediaItem),
             title = controller.mediaMetadata.title?.toString(),
             subtitle = controller.mediaMetadata.subtitle?.toString(),
             artworkUrl = controller.mediaMetadata.artworkUri?.toString(),

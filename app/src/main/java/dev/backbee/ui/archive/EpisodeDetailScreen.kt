@@ -56,6 +56,7 @@ fun EpisodeDetailScreen(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val skipSeconds by viewModel.skipSeconds.collectAsStateWithLifecycle()
     val playerState by player.state.collectAsStateWithLifecycle()
     val row = state.row
     val colors = backbeeColors
@@ -125,19 +126,25 @@ fun EpisodeDetailScreen(
         // Once the player holds this episode the button is a transport control,
         // not a way in: offering "resume from 1:17" while 1:17 is playing invites
         // a tap that seeks backwards for no reason.
-        BrutalButton(
-            onClick = { if (loadedHere) player.togglePlayPause() else player.playEpisode(row.id) },
-        ) {
-            Label(
-                when {
-                    loadedHere && playerState.isPlaying -> "Pause"
-                    loadedHere -> "Resume"
-                    (row.positionSeconds ?: 0) > 0 ->
-                        "Resume from ${ArchiveProgress.formatClock(row.positionSeconds ?: 0)}"
-                    else -> "Play from 00:00"
-                },
-                color = colors.onAccentPrimary,
-            )
+        if (row.enclosureUrl == null) {
+            // The feed entry has no audio file. A Play button here would do
+            // nothing, and doing nothing looks like a broken app.
+            Readout(lines = listOf("NO AUDIO IN THIS FEED ENTRY", "NOTHING TO PLAY OR DOWNLOAD"))
+        } else {
+            BrutalButton(
+                onClick = { if (loadedHere) player.togglePlayPause() else player.playEpisode(row.id) },
+            ) {
+                Label(
+                    when {
+                        loadedHere && playerState.isPlaying -> "Pause"
+                        loadedHere -> "Resume"
+                        (row.positionSeconds ?: 0) > 0 ->
+                            "Resume from ${ArchiveProgress.formatClock(row.positionSeconds ?: 0)}"
+                        else -> "Play from 00:00"
+                    },
+                    color = colors.onAccentPrimary,
+                )
+            }
         }
 
         // While this episode is the one loaded, this page is the player: the
@@ -155,10 +162,10 @@ fun EpisodeDetailScreen(
             Spacer(Modifier.height(Dimens.space3))
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.space2)) {
                 BrutalOutlineButton(onClick = player::skipBack, modifier = Modifier.weight(1f)) {
-                    Mono("−10s", style = BackbeeType.mono, color = colors.textPrimary)
+                    Mono("−${skipSeconds.first}s", style = BackbeeType.mono, color = colors.textPrimary)
                 }
                 BrutalOutlineButton(onClick = player::skipForward, modifier = Modifier.weight(1f)) {
-                    Mono("+30s", style = BackbeeType.mono, color = colors.textPrimary)
+                    Mono("+${skipSeconds.second}s", style = BackbeeType.mono, color = colors.textPrimary)
                 }
                 BrutalOutlineButton(
                     onClick = {

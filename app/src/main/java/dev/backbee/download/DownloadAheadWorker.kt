@@ -30,6 +30,12 @@ class DownloadAheadWorker(
         val container = (applicationContext as BackbeeApp).container
         val show = container.showRepository.activeShow() ?: return@withContext Result.success()
 
+        // Before planning around the table, make sure the table is telling the
+        // truth about the disk. A DONE row whose file is gone would otherwise
+        // never be fetched again.
+        runCatching { container.downloadRepository.reconcileWithDisk() }
+            .onFailure { Log.w(TAG, "Reconciliation failed", it) }
+
         val resumeTarget = container.playbackRepository.resumeTarget(show.id)
         val currentOrderIndex = resumeTarget?.orderIndex ?: 0
 
@@ -90,8 +96,27 @@ class DownloadAheadWorker(
             }
             .build()
 
-        container.httpClient.newCall(request).execute().use { response ->
+        var expectedTotal = 0L
+        container.mediaHttpClient.newCall(request).execute().use { response ->
+            if (response.code == 416) {
+                // The server says our partial already reaches past the end:
+                // either it is complete and the process died before the rename,
+                // or the file changed under us. Both are settled by starting
+                // over, and neither is settled by sending the same Range again.
+                partial.delete()
+                container.downloadRepository.markFailed(episodeId)
+                return false
+            }
             if (!response.isSuccessful) {
+                container.downloadRepository.markFailed(episodeId)
+                return false
+            }
+            val contentType = response.header("Content-Type").orEmpty()
+            if (contentType.startsWith("text/html", ignoreCase = true)) {
+                // A 200 with an HTML body is a login page or a "file moved"
+                // notice, not audio. Saved as an .mp3 it is something the player
+                // cannot decode, and the failure would surface an hour later.
+                partial.delete()
                 container.downloadRepository.markFailed(episodeId)
                 return false
             }
@@ -105,10 +130,22 @@ class DownloadAheadWorker(
 
             val startingAt = if (resuming) alreadyHave else 0L
             val total = contentLength(response, startingAt)
+            expectedTotal = total
 
             writeBody(response, partial, append = resuming) { written ->
                 container.downloadRepository.markProgress(episodeId, startingAt + written, total)
             }
+        }
+
+        // Only a file of the announced size becomes a download. Short means the
+        // body was cut off: keep the partial so the next attempt resumes it.
+        // Long means the partial and the response disagree about the file: no
+        // amount of resuming fixes that, so start over.
+        if (expectedTotal > 0 && partial.length() != expectedTotal) {
+            Log.w(TAG, "Episode $episodeId: got ${partial.length()} of $expectedTotal bytes")
+            if (partial.length() > expectedTotal) partial.delete()
+            container.downloadRepository.markFailed(episodeId)
+            return false
         }
 
         if (!partial.renameTo(target)) {

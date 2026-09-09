@@ -105,12 +105,15 @@ jobs:
           BACKBEE_KEYSTORE_PASSWORD: ${{ secrets.BACKBEE_KEYSTORE_PASSWORD }}
           BACKBEE_KEY_ALIAS: ${{ secrets.BACKBEE_KEY_ALIAS }}
           BACKBEE_KEY_PASSWORD: ${{ secrets.BACKBEE_KEY_PASSWORD }}
+          # Read by app/build.gradle.kts through the environment rather than
+          # -P arguments, so they never appear in the process list or a
+          # --stacktrace dump.
+          PODCAST_INDEX_KEY: ${{ secrets.PODCAST_INDEX_KEY }}
+          PODCAST_INDEX_SECRET: ${{ secrets.PODCAST_INDEX_SECRET }}
         run: |
           ./gradlew :app:bundleRelease :app:assembleRelease \
             -PversionCode=${{ steps.version.outputs.code }} \
             -PversionName=${{ steps.version.outputs.name }} \
-            -PpodcastIndexKey='${{ secrets.PODCAST_INDEX_KEY }}' \
-            -PpodcastIndexSecret='${{ secrets.PODCAST_INDEX_SECRET }}' \
             --console=plain --stacktrace
 
       - name: Verify the bundle signature

@@ -68,12 +68,12 @@ object ArchiveProbe {
         val withoutDuration = episodes.count { it.durationSeconds == null }
 
         if (archive.pagesFollowed > 1) {
-            findings += "Followed ${archive.pagesFollowed} pages via <atom:link rel=\"next\">; " +
-                "page one alone held ${archive.episodesInFirstPage} of ${episodes.size} episodes."
+            findings += "Followed ${archive.pagesFollowed} feed pages; " +
+                "the first page alone held ${archive.episodesInFirstPage} of ${episodes.size} episodes."
         }
         if (archive.stoppedAtPageLimit) {
-            findings += "Stopped at the page limit with more pages still advertised - " +
-                "raise ArchiveFetcher.maxPages and re-run before trusting this count."
+            findings += "Stopped after ${archive.pagesFollowed} pages with more still advertised; " +
+                "this count is a floor, not the total."
         }
         if (withoutEnclosure > 0) {
             findings += "$withoutEnclosure episode(s) have no <enclosure> and cannot be downloaded or played."

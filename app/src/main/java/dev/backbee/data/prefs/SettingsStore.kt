@@ -2,9 +2,11 @@ package dev.backbee.data.prefs
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -15,7 +17,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
-internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "backbee_settings")
+// A corrupt preferences file would otherwise throw on every read, forever,
+// and every screen that combines settings into its state would crash on open.
+// Settings are cheap to lose; the database, which is not, is not in here.
+internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "backbee_settings",
+    corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
+)
 
 /** Everything on the global Settings screen. Per-show values live on the show row. */
 data class Settings(

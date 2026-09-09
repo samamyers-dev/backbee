@@ -56,6 +56,19 @@ jobs:
       # Published straight after assembling, before the tests. A failing test
       # should turn the build red, but it should not withhold an APK that
       # compiled - the artifact is how the app gets onto a phone at all.
+      # Room writes the schema JSON for the current @Database version during
+      # the build. If that differs from what is committed, an entity changed
+      # without a version bump and a Migration - which would crash every
+      # existing install at first open. Fail here instead.
+      - name: Check the Room schema is committed
+        run: |
+          if [ -n "$(git status --porcelain app/schemas)" ]; then
+            git --no-pager diff app/schemas
+            git status --porcelain app/schemas
+            echo "::error::app/schemas changed during the build. Bump the Room version, add a Migration, and commit the new schema JSON."
+            exit 1
+          fi
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:

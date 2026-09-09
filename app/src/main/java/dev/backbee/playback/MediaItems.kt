@@ -71,6 +71,9 @@ object MediaItems {
     fun orderIndexOf(item: MediaItem?): Int? =
         item?.mediaMetadata?.extras?.getInt(EXTRA_ORDER_INDEX, -1)?.takeIf { it >= 0 }
 
+    fun showIdOf(item: MediaItem?): Long? =
+        item?.mediaMetadata?.extras?.getLong(EXTRA_SHOW_ID, -1L)?.takeIf { it >= 0 }
+
     private fun subtitleFor(row: EpisodeRow): String {
         val number = row.episodeNumber ?: (row.orderIndex + 1)
         return "Ep $number"

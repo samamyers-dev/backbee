@@ -46,11 +46,16 @@ android {
 
         // Optional Podcast Index credentials. Put them in ~/.gradle/gradle.properties
         // (podcastIndexKey / podcastIndexSecret) rather than in the repository; the
-        // release workflow passes them in from secrets. Without them the app works
-        // from feeds alone; with them, a truncated archive can be completed from
-        // the directory.
-        buildConfigField("String", "PODCAST_INDEX_KEY", "\"${properties["podcastIndexKey"] ?: ""}\"")
-        buildConfigField("String", "PODCAST_INDEX_SECRET", "\"${properties["podcastIndexSecret"] ?: ""}\"")
+        // release workflow passes them in through the environment, where they do
+        // not show up in the process list or in a --stacktrace dump. Without them
+        // the app works from feeds alone; with them, a truncated archive can be
+        // completed from the directory.
+        buildConfigField("String", "PODCAST_INDEX_KEY", "\"${secret("PODCAST_INDEX_KEY", "podcastIndexKey") ?: ""}\"")
+        buildConfigField("String", "PODCAST_INDEX_SECRET", "\"${secret("PODCAST_INDEX_SECRET", "podcastIndexSecret") ?: ""}\"")
+
+        // Linked from Settings and from the Play listing. See docs/PLAY_STORE.md
+        // for hosting; change both places together.
+        buildConfigField("String", "PRIVACY_POLICY_URL", "\"https://samamyers-dev.github.io/backbee/PRIVACY\"")
     }
 
     signingConfigs {

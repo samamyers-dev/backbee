@@ -107,7 +107,7 @@ class ArchiveProbeTest {
 
         assertThat(report.verdict).isEqualTo(ArchiveProbe.Verdict.INCONCLUSIVE)
         assertThat(report.stoppedAtPageLimit).isTrue()
-        assertThat(report.findings.joinToString()).contains("raise ArchiveFetcher.maxPages")
+        assertThat(report.findings.joinToString()).contains("more still advertised")
     }
 
     @Test

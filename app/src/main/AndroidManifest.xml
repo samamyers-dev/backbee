@@ -47,6 +47,18 @@
             </intent-filter>
         </service>
 
+        <!-- Headset and Bluetooth play buttons while the process is dead. The
+             receiver starts the service, which asks the session callback
+             (onPlaybackResumption) what to play. Without it those buttons do
+             nothing until the app has been opened by hand. -->
+        <receiver
+            android:name="androidx.media3.session.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+
         <receiver
             android:name=".widget.BackbeeWidgetReceiver"
             android:exported="false">

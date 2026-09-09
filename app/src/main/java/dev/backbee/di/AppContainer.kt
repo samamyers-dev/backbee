@@ -36,6 +36,9 @@ class AppContainer(context: Context) {
 
     val httpClient: OkHttpClient by lazy { Http.client() }
 
+    /** Streaming and downloads. Separate from [httpClient]: see [Http.mediaClient]. */
+    val mediaHttpClient: OkHttpClient by lazy { Http.mediaClient() }
+
     val database: BackbeeDatabase by lazy { BackbeeDatabase.build(appContext) }
 
     val settingsStore: SettingsStore by lazy { SettingsStore(appContext) }

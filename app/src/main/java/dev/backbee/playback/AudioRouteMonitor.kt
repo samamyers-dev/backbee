@@ -6,6 +6,7 @@ import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 
 /**
@@ -26,6 +27,7 @@ class AudioRouteMonitor(
 ) {
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val handler = Handler(Looper.getMainLooper())
+    private var startedAt = 0L
 
     private val callback = object : AudioDeviceCallback() {
         override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) {
@@ -36,6 +38,11 @@ class AudioRouteMonitor(
         }
 
         override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>) {
+            // Registering replays the devices already present as one "added"
+            // batch. Treating that as the car just connecting would start
+            // playback merely because the service was created - by the widget,
+            // by Auto browsing - while Bluetooth happened to be on.
+            if (SystemClock.elapsedRealtime() - startedAt < INITIAL_REPLAY_WINDOW_MS) return
             if (added.any { it.isBluetoothOutput }) {
                 Log.d(TAG, "Bluetooth output connected")
                 onBluetoothConnected()
@@ -44,6 +51,7 @@ class AudioRouteMonitor(
     }
 
     fun start() {
+        startedAt = SystemClock.elapsedRealtime()
         audioManager.registerAudioDeviceCallback(callback, handler)
     }
 
@@ -70,5 +78,6 @@ class AudioRouteMonitor(
 
     companion object {
         private const val TAG = "AudioRouteMonitor"
+        private const val INITIAL_REPLAY_WINDOW_MS = 1_500L
     }
 }

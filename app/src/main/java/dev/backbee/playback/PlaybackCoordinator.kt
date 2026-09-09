@@ -2,7 +2,9 @@ package dev.backbee.playback
 
 import android.util.Log
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.datasource.HttpDataSource
 import dev.backbee.core.playback.SmartResume
 import dev.backbee.data.db.EpisodeRow
 import dev.backbee.data.db.ShowEntity
@@ -157,6 +159,43 @@ class PlaybackCoordinator(
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
         if (isPlaying) startOutroWatcher() else stopOutroWatcher()
+    }
+
+    /**
+     * A decade-old archive has dead episodes: a 404, a host that is gone, a
+     * "file moved" page served as audio. Stopping the whole queue on one of
+     * them would strand the listener in the car, so an episode that cannot be
+     * played is skipped and playback carries on. It stays unplayed, so it can
+     * be tried again by hand later. Transient failures - no signal, a timeout,
+     * a 5xx - are left where they are: the next Play re-prepares from the same
+     * position.
+     */
+    override fun onPlayerError(error: PlaybackException) {
+        val failedId = MediaItems.episodeIdOf(player.currentMediaItem)
+        val dead = isUnplayable(error)
+        Log.w(TAG, "Player error on episode $failedId: ${error.errorCodeName}; skipping=$dead")
+        if (dead && player.hasNextMediaItem()) {
+            player.seekToNextMediaItem()
+            player.prepare()
+            player.play()
+        }
+    }
+
+    private fun isUnplayable(error: PlaybackException): Boolean = when (error.errorCode) {
+        PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> {
+            val code = (error.cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode ?: 0
+            code in 400..499
+        }
+
+        PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND,
+        PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
+        PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
+        PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED,
+        PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED,
+        PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
+        -> true
+
+        else -> false
     }
 
     // -- Window management --------------------------------------------------

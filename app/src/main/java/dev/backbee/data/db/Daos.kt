@@ -358,43 +358,57 @@ interface PositionDao {
      * The hot path. Writes only the three columns that change during playback so
      * a flush costs as little as possible - this runs every five seconds and on
      * every audio-route change.
+     *
+     * INSERT OR IGNORE followed by UPDATE rather than a single upsert. `ON
+     * CONFLICT DO UPDATE` needs SQLite 3.24, and Android 8 and 9 ship older
+     * versions: there an upsert is a syntax error on every flush, which would
+     * mean the app plays perfectly and never saves a position. Two statements in
+     * one transaction cost nothing measurable and run everywhere.
      */
-    @Query(
-        """
-        INSERT INTO positions (episode_id, position_s, updated_at, played, played_at)
-        VALUES (:episodeId, :positionSeconds, :updatedAt, 0, NULL)
-        ON CONFLICT(episode_id) DO UPDATE SET
-            position_s = :positionSeconds,
-            updated_at = :updatedAt
-        """
-    )
-    suspend fun savePosition(episodeId: Long, positionSeconds: Long, updatedAt: Long)
+    @Transaction
+    suspend fun savePosition(episodeId: Long, positionSeconds: Long, updatedAt: Long) {
+        ensurePositionRow(episodeId, updatedAt)
+        updatePosition(episodeId, positionSeconds, updatedAt)
+    }
+
+    @Transaction
+    suspend fun markPlayed(episodeId: Long, positionSeconds: Long, at: Long) {
+        ensurePositionRow(episodeId, at)
+        updatePlayed(episodeId, positionSeconds, at)
+    }
+
+    @Transaction
+    suspend fun markUnplayed(episodeId: Long, at: Long) {
+        ensurePositionRow(episodeId, at)
+        updateUnplayed(episodeId, at)
+    }
 
     @Query(
         """
-        INSERT INTO positions (episode_id, position_s, updated_at, played, played_at)
-        VALUES (:episodeId, :positionSeconds, :at, 1, :at)
-        ON CONFLICT(episode_id) DO UPDATE SET
-            position_s = :positionSeconds,
-            updated_at = :at,
-            played = 1,
-            played_at = :at
-        """
-    )
-    suspend fun markPlayed(episodeId: Long, positionSeconds: Long, at: Long)
-
-    @Query(
-        """
-        INSERT INTO positions (episode_id, position_s, updated_at, played, played_at)
+        INSERT OR IGNORE INTO positions (episode_id, position_s, updated_at, played, played_at)
         VALUES (:episodeId, 0, :at, 0, NULL)
-        ON CONFLICT(episode_id) DO UPDATE SET
-            position_s = 0,
-            updated_at = :at,
-            played = 0,
-            played_at = NULL
         """
     )
-    suspend fun markUnplayed(episodeId: Long, at: Long)
+    suspend fun ensurePositionRow(episodeId: Long, at: Long)
+
+    @Query("UPDATE positions SET position_s = :positionSeconds, updated_at = :updatedAt WHERE episode_id = :episodeId")
+    suspend fun updatePosition(episodeId: Long, positionSeconds: Long, updatedAt: Long)
+
+    @Query(
+        """
+        UPDATE positions SET position_s = :positionSeconds, updated_at = :at, played = 1, played_at = :at
+        WHERE episode_id = :episodeId
+        """
+    )
+    suspend fun updatePlayed(episodeId: Long, positionSeconds: Long, at: Long)
+
+    @Query(
+        """
+        UPDATE positions SET position_s = 0, updated_at = :at, played = 0, played_at = NULL
+        WHERE episode_id = :episodeId
+        """
+    )
+    suspend fun updateUnplayed(episodeId: Long, at: Long)
 
     @Query("SELECT COUNT(*) FROM positions p JOIN episodes e ON e.id = p.episode_id WHERE e.show_id = :showId AND p.played = 1")
     suspend fun playedCount(showId: Long): Int
@@ -449,10 +463,8 @@ interface PositionDao {
     suspend fun playedCountInRange(showId: Long, fromOrderIndex: Int, toOrderIndex: Int): Int
 
     /**
-     * Written as INSERT OR IGNORE plus UPDATE rather than as an upsert. The
-     * hot-path writes above use ON CONFLICT DO UPDATE, which needs SQLite 3.24;
-     * there is no reason to add more of that dependency to a path that does not
-     * need the speed.
+     * INSERT OR IGNORE plus UPDATE, like every other write in this DAO: the
+     * upsert syntax is not available on the oldest supported devices.
      */
     @Query(
         """
@@ -508,32 +520,43 @@ interface MarkDao {
     @Query("SELECT * FROM marks WHERE episode_id = :episodeId")
     fun observe(episodeId: Long): Flow<MarkEntity?>
 
-    @Query(
-        """
-        INSERT INTO marks (episode_id, starred, note, keep_after_playing, updated_at)
-        VALUES (:episodeId, :starred, NULL, 0, :at)
-        ON CONFLICT(episode_id) DO UPDATE SET starred = :starred, updated_at = :at
-        """
-    )
-    suspend fun setStarred(episodeId: Long, starred: Boolean, at: Long)
+    // INSERT OR IGNORE then UPDATE, not an upsert: see PositionDao.savePosition
+    // for why. Each write touches one column and the timestamp.
+
+    @Transaction
+    suspend fun setStarred(episodeId: Long, starred: Boolean, at: Long) {
+        ensureMarkRow(episodeId, at)
+        updateStarred(episodeId, starred, at)
+    }
+
+    @Transaction
+    suspend fun setNote(episodeId: Long, note: String?, at: Long) {
+        ensureMarkRow(episodeId, at)
+        updateNote(episodeId, note, at)
+    }
+
+    @Transaction
+    suspend fun setKeepAfterPlaying(episodeId: Long, keep: Boolean, at: Long) {
+        ensureMarkRow(episodeId, at)
+        updateKeepAfterPlaying(episodeId, keep, at)
+    }
 
     @Query(
         """
-        INSERT INTO marks (episode_id, starred, note, keep_after_playing, updated_at)
-        VALUES (:episodeId, 0, :note, 0, :at)
-        ON CONFLICT(episode_id) DO UPDATE SET note = :note, updated_at = :at
+        INSERT OR IGNORE INTO marks (episode_id, starred, note, keep_after_playing, updated_at)
+        VALUES (:episodeId, 0, NULL, 0, :at)
         """
     )
-    suspend fun setNote(episodeId: Long, note: String?, at: Long)
+    suspend fun ensureMarkRow(episodeId: Long, at: Long)
 
-    @Query(
-        """
-        INSERT INTO marks (episode_id, starred, note, keep_after_playing, updated_at)
-        VALUES (:episodeId, 0, NULL, :keep, :at)
-        ON CONFLICT(episode_id) DO UPDATE SET keep_after_playing = :keep, updated_at = :at
-        """
-    )
-    suspend fun setKeepAfterPlaying(episodeId: Long, keep: Boolean, at: Long)
+    @Query("UPDATE marks SET starred = :starred, updated_at = :at WHERE episode_id = :episodeId")
+    suspend fun updateStarred(episodeId: Long, starred: Boolean, at: Long)
+
+    @Query("UPDATE marks SET note = :note, updated_at = :at WHERE episode_id = :episodeId")
+    suspend fun updateNote(episodeId: Long, note: String?, at: Long)
+
+    @Query("UPDATE marks SET keep_after_playing = :keep, updated_at = :at WHERE episode_id = :episodeId")
+    suspend fun updateKeepAfterPlaying(episodeId: Long, keep: Boolean, at: Long)
 }
 
 @Dao
@@ -571,6 +594,12 @@ interface DownloadDao {
 
     @Query("SELECT COALESCE(SUM(bytes_done), 0) FROM downloads WHERE state = 'DONE'")
     fun observeBytesOnDisk(): Flow<Long>
+
+    @Query("SELECT COALESCE(SUM(bytes_done), 0) FROM downloads WHERE state = 'DONE'")
+    suspend fun bytesOnDisk(): Long
+
+    @Query("SELECT * FROM downloads WHERE state = 'DONE'")
+    suspend fun done(): List<DownloadEntity>
 
     @Query("SELECT file_path FROM downloads WHERE file_path IS NOT NULL")
     suspend fun allFilePaths(): List<String>

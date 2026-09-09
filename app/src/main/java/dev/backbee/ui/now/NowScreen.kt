@@ -70,6 +70,7 @@ fun NowScreen(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val skipSeconds by viewModel.skipSeconds.collectAsStateWithLifecycle()
     val playerState by player.state.collectAsStateWithLifecycle()
 
     when {
@@ -285,8 +286,8 @@ private fun SpineNow(
         Spacer(Modifier.height(Dimens.space4))
 
         Row(horizontalArrangement = Arrangement.spacedBy(Dimens.gap)) {
-            TransportKey("−10s", Modifier.weight(1f)) { player.skipBack() }
-            TransportKey("+30s", Modifier.weight(1f)) { player.skipForward() }
+            TransportKey("−${skipSeconds.first}s", Modifier.weight(1f)) { player.skipBack() }
+            TransportKey("+${skipSeconds.second}s", Modifier.weight(1f)) { player.skipForward() }
             // Labelled with the speed, so it had better change the speed. It
             // used to skip to the next episode, which is a bad surprise on a
             // key you press without looking.
