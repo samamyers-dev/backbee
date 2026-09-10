@@ -216,16 +216,7 @@ class AutoLibraryCallback(
     override fun onPlaybackResumption(
         mediaSession: MediaSession,
         controller: MediaSession.ControllerInfo,
-        isForPlayback: Boolean,
-    ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> = resumptionPlan()
-
-    @Deprecated("Media3 calls the three-argument overload; kept for older callers.")
-    override fun onPlaybackResumption(
-        mediaSession: MediaSession,
-        controller: MediaSession.ControllerInfo,
-    ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> = resumptionPlan()
-
-    private fun resumptionPlan(): ListenableFuture<MediaSession.MediaItemsWithStartPosition> = scope.future {
+    ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> = scope.future {
         coordinator()?.planResume().toItemsWithStartPosition()
     }
 
