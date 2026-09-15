@@ -10,11 +10,15 @@ import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import dev.backbee.BackbeeApp
+import dev.backbee.R
+import androidx.glance.appwidget.updateAll
 import dev.backbee.data.net.Http
 import dev.backbee.ui.MainActivity
+import dev.backbee.widget.BackbeeWidget
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -50,9 +54,17 @@ class PlaybackService : MediaLibraryService() {
         positionWriter = PositionWriter(
             scope = scope,
             repository = container.playbackRepository,
-            onEpisodeFinished = { container.workScheduler.requestDownloadAhead(container.settingsStore.current().wifiOnlyDownloads) },
+            // Writes outlive this service on purpose: see PositionWriter.writeScope.
+            writeScope = container.applicationScope,
+            onEpisodeFinished = {
+                container.workScheduler.requestDownloadAhead(container.settingsStore.current().wifiOnlyDownloads)
+                refreshWidget()
+            },
             onFlushed = { container.diagnostics.recordPositionFlush() },
-            onLoadedEpisodeChanged = { container.playbackStateStore.setLoadedEpisode(it) },
+            onLoadedEpisodeChanged = {
+                container.playbackStateStore.setLoadedEpisode(it)
+                refreshWidget()
+            },
         ).also { it.attach(player) }
 
         coordinator = PlaybackCoordinator(
@@ -67,6 +79,14 @@ class PlaybackService : MediaLibraryService() {
                 }
             },
             onArchiveCompleted = { showId -> Log.i(TAG, "Archive $showId complete") },
+        )
+
+        // The status-bar icon is the one piece of the app on screen all day;
+        // Media3's default is a generic play glyph.
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this).build().apply {
+                setSmallIcon(R.drawable.ic_stat_backbee)
+            }
         )
 
         session = MediaLibrarySession.Builder(
@@ -98,8 +118,21 @@ class PlaybackService : MediaLibraryService() {
         ).also { it.start() }
     }
 
+    /**
+     * The widget shows where you left off, which moves whenever an episode
+     * finishes or the player loads something. Without this it would show the
+     * same title for up to half an hour after auto-advance.
+     */
+    private suspend fun refreshWidget() {
+        runCatching { BackbeeWidget().updateAll(this@PlaybackService) }
+            .onFailure { Log.w(TAG, "Widget refresh failed", it) }
+    }
+
     private fun buildPlayer(container: dev.backbee.di.AppContainer): ExoPlayer {
-        val httpFactory = OkHttpDataSource.Factory(container.httpClient)
+        // The media client has no call timeout: a streamed episode is one HTTP
+        // call for the whole file, and the feed client's five-minute limit
+        // would cut it off mid-sentence every five minutes.
+        val httpFactory = OkHttpDataSource.Factory(container.mediaHttpClient)
             .setUserAgent(Http.USER_AGENT)
 
         // Swaps in the downloaded file when there is one. Doing it at open time
@@ -123,8 +156,9 @@ class PlaybackService : MediaLibraryService() {
                 /* handleAudioFocus = */ true,
             )
             .setHandleAudioBecomingNoisy(true)
-            // Podcast audio is long and often streamed over patchy mobile data;
-            // a generous buffer is worth the memory in a car.
+            // Keeps the CPU and the Wi-Fi radio awake while streaming with the
+            // screen off. Without it Doze can starve the buffer on a long drive.
+            .setWakeMode(C.WAKE_MODE_NETWORK)
             .setSeekForwardIncrementMs(30_000)
             .setSeekBackIncrementMs(10_000)
             .build()
@@ -136,7 +170,9 @@ class PlaybackService : MediaLibraryService() {
         // Swiping the app away should not silently drop the position, and should
         // not leave a paused service lingering either.
         positionWriter.flush("task removed")
-        if (!player.isPlaying) {
+        // isPlaybackOngoing rather than isPlaying: a queue that is buffering
+        // with playWhenReady set is about to make sound and must survive.
+        if (!isPlaybackOngoing()) {
             stopSelf()
         }
         super.onTaskRemoved(rootIntent)

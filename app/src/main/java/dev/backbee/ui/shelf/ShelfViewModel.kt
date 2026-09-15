@@ -7,8 +7,13 @@ import dev.backbee.core.playback.RelativeTime
 import dev.backbee.data.db.ShowEntity
 import dev.backbee.data.db.ShowProgress
 import dev.backbee.data.net.DirectoryResult
+import dev.backbee.data.net.FeedException
 import dev.backbee.di.AppContainer
+import dev.backbee.playback.PlayerConnection
+import java.io.IOException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -62,7 +67,10 @@ data class AddShowState(
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class ShelfViewModel(private val container: AppContainer) : ViewModel() {
+class ShelfViewModel(
+    private val container: AppContainer,
+    private val player: PlayerConnection,
+) : ViewModel() {
 
     private val shows = container.showRepository
 
@@ -140,36 +148,56 @@ class ShelfViewModel(private val container: AppContainer) : ViewModel() {
             } catch (e: Exception) {
                 _addState.value = _addState.value.copy(
                     adding = false,
-                    probeLines = listOf("COULD NOT ADD: ${e.message}"),
+                    probeLines = listOf(describeAddFailure(e)),
                     probeUsable = false,
                 )
             }
         }
     }
 
+    /**
+     * What went wrong, in words that say what to do next. The raw exception
+     * text ("DOCTYPE is disallowed") is what you get for pasting a show's web
+     * page instead of its feed, and tells nobody that.
+     */
+    private fun describeAddFailure(e: Exception): String {
+        val text = e.message.orEmpty()
+        return when {
+            e is FeedException && text.startsWith("HTTP 404") ->
+                "NOTHING AT THAT ADDRESS. CHECK THE FEED URL."
+            e is FeedException && text.startsWith("HTTP") ->
+                "THE FEED'S SERVER REFUSED (${text.substringBefore(" fetching")}). TRY AGAIN LATER."
+            e is IOException ->
+                "COULD NOT REACH THE FEED. CHECK THE CONNECTION AND THE URL."
+            "DOCTYPE" in text || "html" in text.lowercase() || "parse" in text.lowercase() ->
+                "THAT LINK IS NOT A PODCAST FEED. PASTE THE RSS URL, NOT THE SHOW'S WEBSITE."
+            else -> "COULD NOT ADD: ${text.ifBlank { e.javaClass.simpleName }}"
+        }
+    }
+
     /** The Phase 0 report as the terminal readout the spec asks for. */
     private fun probeReadout(probe: ArchiveProbe.Report, added: Int, recovered: Boolean): List<String> =
         buildList {
-            add("FEED OK // ${probe.episodesAfterPaging} ITEMS DECLARED")
+            add("FEED OK // ${probe.episodesAfterPaging} EPISODES LISTED")
             add("ADDED $added EPISODE(S) TO THE ARCHIVE")
             add(
-                if (probe.pagesFollowed > 1) "PAGED FEED: rel=next FOLLOWED x${probe.pagesFollowed}"
-                else "PAGED FEED: rel=next ABSENT"
+                if (probe.pagesFollowed > 1) "OLDER PAGES: FOLLOWED ${probe.pagesFollowed - 1} MORE"
+                else "OLDER PAGES: NONE OFFERED"
             )
-            probe.expectedTotal?.let { add("DIRECTORY CROSS-CHECK: $it") }
+            probe.expectedTotal?.let { add("DIRECTORY COUNT: $it") }
             if (probe.episodesWithoutEnclosure > 0) {
-                add("UNPLAYABLE (NO ENCLOSURE): ${probe.episodesWithoutEnclosure}")
+                add("NO AUDIO IN FEED: ${probe.episodesWithoutEnclosure} EPISODE(S)")
             }
             add(
                 when {
-                    recovered -> "FEED WAS TRUNCATED. RECOVERED VIA PODCAST INDEX."
+                    recovered -> "THE FEED OFFERED ONLY PART OF THE ARCHIVE. THE REST CAME FROM THE PODCAST DIRECTORY."
                     probe.verdict == ArchiveProbe.Verdict.COMPLETE ->
-                        "FULL ARCHIVE AVAILABLE. NO IMPORT NEEDED."
+                        "FULL ARCHIVE AVAILABLE."
                     probe.verdict == ArchiveProbe.Verdict.COMPLETE_VIA_PAGING ->
-                        "FULL ARCHIVE AVAILABLE VIA PAGING."
+                        "FULL ARCHIVE AVAILABLE ACROSS ITS PAGES."
                     probe.verdict == ArchiveProbe.Verdict.LIKELY_TRUNCATED ->
-                        "WARNING: ARCHIVE LOOKS TRUNCATED."
-                    else -> "INCONCLUSIVE. VERIFY BEFORE STARTING THIS SHOW."
+                        "WARNING: THIS LOOKS LIKE PART OF THE ARCHIVE, NOT ALL OF IT."
+                    else -> "CAN'T TELL IF THIS IS THE WHOLE ARCHIVE. CHECK THE EARLIEST EPISODE BEFORE COMMITTING."
                 }
             )
             probe.findings.firstOrNull()?.let { add(it.uppercase()) }
@@ -177,6 +205,10 @@ class ShelfViewModel(private val container: AppContainer) : ViewModel() {
 
     fun makeActive(showId: Long) {
         viewModelScope.launch {
+            // One show at a time. Promoting a show while another is playing
+            // would leave the old one talking under a Now screen about the new one.
+            val playingShow = player.state.value.showId
+            if (playingShow != null && playingShow != showId) player.stopAndClear()
             shows.makeActive(showId)
             container.workScheduler.requestDownloadAhead(
                 container.settingsStore.current().wifiOnlyDownloads
@@ -186,7 +218,10 @@ class ShelfViewModel(private val container: AppContainer) : ViewModel() {
 
     fun removeShow(showId: Long) {
         viewModelScope.launch {
-            container.episodeFiles.deleteShow(showId)
+            // Stop before deleting the audio out from under the player.
+            if (player.state.value.showId == showId) player.stopAndClear()
+            // Gigabytes of audio, off the main thread.
+            withContext(Dispatchers.IO) { container.episodeFiles.deleteShow(showId) }
             shows.deleteShow(showId)
         }
     }

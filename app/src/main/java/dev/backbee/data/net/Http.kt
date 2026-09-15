@@ -10,10 +10,23 @@ import okhttp3.Request
 object Http {
     const val USER_AGENT = "backbee/1.0 (personal archive player)"
 
+    /** For feeds and directory lookups: bounded calls that should finish in seconds. */
     fun client(): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .callTimeout(5, TimeUnit.MINUTES)
+        .followRedirects(true)
+        .retryOnConnectionFailure(true)
+        .build()
+
+    /**
+     * For audio: streaming and downloads. No call timeout, because an episode
+     * is one HTTP call that may legitimately run for an hour; the read timeout
+     * still catches a connection that has gone dead.
+     */
+    fun mediaClient(): OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
         .followRedirects(true)
         .retryOnConnectionFailure(true)
         .build()

@@ -1,5 +1,6 @@
 package dev.backbee.ui.screenshot
 
+import android.app.Application
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,19 +9,35 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.backbee.data.db.DownloadState
 import dev.backbee.data.db.EpisodeRow
-import dev.backbee.ui.components.BrutalButton
-import dev.backbee.ui.components.BrutalDivider
-import dev.backbee.ui.components.BrutalOutlineButton
-import dev.backbee.ui.components.BrutalPanel
-import dev.backbee.ui.components.BrutalProgress
+import dev.backbee.ui.components.CarbonButton
+import dev.backbee.ui.components.CarbonDivider
+import dev.backbee.ui.components.CarbonOutlineButton
+import dev.backbee.ui.components.CarbonPanel
+import dev.backbee.ui.components.CarbonProgress
+import dev.backbee.ui.components.CarbonDialog
+import dev.backbee.ui.components.CarbonTextField
+import dev.backbee.ui.components.CarbonToggle
 import dev.backbee.ui.components.EpisodeRowItem
 import dev.backbee.ui.components.Glyph
 import dev.backbee.ui.components.GlyphText
@@ -44,13 +61,13 @@ import org.robolectric.annotation.GraphicsMode
  * Renders the design system and the archive row to PNG on the JVM.
  *
  * This exists because the look cannot otherwise be checked without an emulator:
- * a build that compiles says nothing about whether the shadows land, the
- * borders read, or the type is legible at arm's length. The images are written
+ * a build that compiles says nothing about whether the spacing works, the
+ * states read, or the type is legible at arm's length. The images are written
  * to build/outputs/roborazzi and published by CI.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(qualifiers = RobolectricDeviceQualifiers.Pixel5)
+@Config(sdk = [35], application = Application::class, qualifiers = RobolectricDeviceQualifiers.Pixel5)
 class ScreenshotTest {
 
     @get:Rule
@@ -80,6 +97,69 @@ class ScreenshotTest {
     @Test
     fun `scan bar light`() = shoot("scan-bar-light", dark = false) { ScanBarStates() }
 
+    @Test
+    fun `forms dark`() = shoot("carbon-forms-dark", dark = true) { FormStates() }
+
+    @Test
+    fun `forms light`() = shoot("carbon-forms-light", dark = false) { FormStates() }
+
+    @Test
+    fun `dialog dark`() = shootDialog("carbon-dialog-dark", dark = true, disabled = false)
+
+    @Test
+    fun `dialog light`() = shootDialog("carbon-dialog-light", dark = false, disabled = false)
+
+    @Test
+    fun `dialog pending dark`() = shootDialog("carbon-dialog-pending-dark", dark = true, disabled = true)
+
+    @Test
+    fun `dialog pending light`() = shootDialog("carbon-dialog-pending-light", dark = false, disabled = true)
+
+    @Test
+    fun `narrow large text playback dark`() = shoot(
+        "playback-narrow-large-text-dark", dark = true, animated = true,
+        width = 320.dp, fontScale = 2f,
+    ) { NowPlayingStates() }
+
+    @Test
+    fun `narrow large text playback light`() = shoot(
+        "playback-narrow-large-text-light", dark = false, animated = true,
+        width = 320.dp, fontScale = 2f,
+    ) { NowPlayingStates() }
+
+    @Test
+    fun `narrow large text scan dark`() = shoot(
+        "scan-narrow-large-text-dark", dark = true, width = 320.dp, fontScale = 2f,
+    ) { ScanBarStates() }
+
+    @Test
+    fun `narrow large text scan light`() = shoot(
+        "scan-narrow-large-text-light", dark = false, width = 320.dp, fontScale = 2f,
+    ) { ScanBarStates() }
+
+    private fun shootDialog(name: String, dark: Boolean, disabled: Boolean) {
+        compose.setContent {
+            BackbeeTheme(darkTheme = dark) {
+                CarbonDialog(
+                    onDismissRequest = {},
+                    title = { Label("Remove downloaded episode?") },
+                    text = { Mono("Your listening progress and episode note will stay on this device.") },
+                    confirmButton = {
+                        CarbonButton(onClick = {}, enabled = !disabled,
+                            background = backbeeColors.accentAlert,
+                            contentColor = backbeeColors.onAccentAlert) {
+                            Label(if (disabled) "Removing…" else "Remove")
+                        }
+                    },
+                    dismissButton = { CarbonOutlineButton(onClick = {}) { Label("Cancel") } },
+                )
+            }
+        }
+        compose.onNodeWithText("Remove downloaded episode?").assertIsDisplayed()
+        // A Dialog owns a separate window; capture its root rather than the empty host.
+        compose.onNode(isDialog()).captureRoboImage("build/outputs/roborazzi/$name.png")
+    }
+
     /**
      * [animated] stops the test clock from being driven automatically. The
      * visualiser runs an infinite animation, and with autoAdvance on the tree
@@ -89,18 +169,45 @@ class ScreenshotTest {
         name: String,
         dark: Boolean,
         animated: Boolean = false,
+        width: Dp? = null,
+        fontScale: Float = 1f,
         content: @Composable () -> Unit,
     ) {
         if (animated) compose.mainClock.autoAdvance = false
         compose.setContent {
             BackbeeTheme(darkTheme = dark) {
-                Column(Modifier.fillMaxWidth().background(backbeeColors.bgPage)) { content() }
+                CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) {
+                    Column((if (width == null) Modifier.fillMaxWidth() else Modifier.width(width))
+                        .background(backbeeColors.bgPage).testTag("screenshot-fixture")) { content() }
+                }
             }
         }
         // Far enough into the cycle that the bars are at different heights
         // rather than all at their starting value.
         if (animated) compose.mainClock.advanceTimeBy(420)
-        compose.onRoot().captureRoboImage("build/outputs/roborazzi/$name.png")
+        compose.onNodeWithTag("screenshot-fixture").assertIsDisplayed()
+            .captureRoboImage("build/outputs/roborazzi/$name.png")
+    }
+}
+
+/** Explicit component fixture, not a substitute for a live app destination. */
+@Composable
+private fun FormStates() {
+    Column(Modifier.padding(Dimens.gutter), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Label("Carbon form states")
+        var note by remember { mutableStateOf("Remember this episode") }
+        CarbonTextField(note, { note = it }, label = { Label("Episode note") })
+        CarbonTextField("not a feed URL", {}, label = { Label("Feed URL · invalid") },
+            singleLine = true, isError = true)
+        CarbonTextField("Saved locally", {}, label = { Label("Disabled field") }, enabled = false)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column { Label("Off"); CarbonToggle(false, {}) }
+            Column { Label("On"); CarbonToggle(true, {}) }
+            Column { Label("Disabled"); CarbonToggle(true, {}, enabled = false) }
+        }
+        CarbonButton(onClick = {}) { Label("Save note") }
+        CarbonButton(onClick = {}, enabled = false) { Label("Saving…") }
+        CarbonOutlineButton(onClick = {}, enabled = false) { Label("Unavailable action") }
     }
 }
 
@@ -112,32 +219,32 @@ private fun DesignSystemSheet() {
         Modifier.padding(Dimens.gutter),
         verticalArrangement = Arrangement.spacedBy(Dimens.space4),
     ) {
-        Label("Backbee · FREE THEM.", color = colors.textPrimary)
+        Label("Backbee · Carbon components", color = colors.textPrimary)
 
         Mono("EP 312 OF 1,247 · 25% · ~340 HRS LEFT AT 1.6×", color = colors.textMuted)
 
-        BrutalButton(onClick = {}) {
+        CarbonButton(onClick = {}) {
             Mono("RESUME", color = colors.onAccentPrimary)
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(Dimens.space2)) {
-            BrutalOutlineButton(onClick = {}, modifier = Modifier.weight(1f)) {
+            CarbonOutlineButton(onClick = {}, modifier = Modifier.weight(1f)) {
                 Mono("−10s", color = colors.textPrimary)
             }
-            BrutalOutlineButton(onClick = {}, modifier = Modifier.weight(1f)) {
+            CarbonOutlineButton(onClick = {}, modifier = Modifier.weight(1f)) {
                 Mono("+30s", color = colors.textPrimary)
             }
-            BrutalOutlineButton(onClick = {}, modifier = Modifier.weight(1f)) {
+            CarbonOutlineButton(onClick = {}, modifier = Modifier.weight(1f)) {
                 Mono("1.6×", color = colors.textPrimary)
             }
         }
 
-        BrutalPanel(Modifier.fillMaxWidth()) {
-            Label("Panel with a hard offset shadow")
-            Mono("BORDERED, SQUARE, NO BLUR", color = colors.textMuted)
+        CarbonPanel(Modifier.fillMaxWidth()) {
+            Label("Contextual layer")
+            Mono("Flat surfaces · square controls · Plex type", color = colors.textMuted)
         }
 
-        BrutalProgress(fraction = 0.25f, height = 14.dp)
+        CarbonProgress(fraction = 0.25f, height = 14.dp)
 
         Row(horizontalArrangement = Arrangement.spacedBy(Dimens.space2)) {
             StatusChip("Playing")
@@ -154,7 +261,7 @@ private fun DesignSystemSheet() {
             GlyphText(Glyph.FAILED, colors.accentAlert)
         }
 
-        BrutalDivider()
+        CarbonDivider()
 
         Readout(
             listOf(
@@ -166,7 +273,7 @@ private fun DesignSystemSheet() {
 
         Readout(
             listOf("QUEUE STALLED · 3 FAILED", "POSITION WRITES: LOCAL, UNAFFECTED."),
-            tone = colors.accentAlert,
+            tone = colors.onInverseAlert,
         )
     }
 }
@@ -248,7 +355,7 @@ private fun ArchiveRowStates() {
             row(252, "Gary's Third Divorce"),
         ).forEach { (data, playing) ->
             EpisodeRowItem(row = data, onClick = {}, isPlaying = playing)
-            BrutalDivider()
+            CarbonDivider()
         }
     }
 }

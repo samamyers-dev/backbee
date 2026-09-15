@@ -10,7 +10,9 @@ import dev.backbee.data.db.BackbeeDatabase
 import dev.backbee.data.db.EpisodeEntity
 import dev.backbee.data.db.ShowEntity
 import dev.backbee.data.net.PodcastDirectory
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 
 data class IngestResult(
     val showId: Long,
@@ -65,7 +67,7 @@ class ShowRepository(
     suspend fun addShow(feedUrl: String, makeActive: Boolean? = null): IngestResult {
         showDao.getByRssUrl(feedUrl)?.let { return refresh(it.id) }
 
-        val archive = archiveFetcher.fetchArchive(feedUrl)
+        val archive = fetchArchive(feedUrl)
         val now = System.currentTimeMillis()
         val showId = showDao.insert(
             ShowEntity(
@@ -85,7 +87,7 @@ class ShowRepository(
     /** The quiet daily check. Cheap when nothing changed. */
     suspend fun refresh(showId: Long): IngestResult {
         val show = showDao.getById(showId) ?: error("No show with id $showId")
-        val archive = archiveFetcher.fetchArchive(show.rssUrl)
+        val archive = fetchArchive(show.rssUrl)
         val now = System.currentTimeMillis()
 
         // Titles and artwork drift over a decade-long run. Keep those current;
@@ -101,10 +103,19 @@ class ShowRepository(
 
     /** Phase 0 on demand, without writing anything. Used by the add-show flow. */
     suspend fun probeArchive(feedUrl: String): ArchiveProbe.Report {
-        val archive = archiveFetcher.fetchArchive(feedUrl)
+        val archive = fetchArchive(feedUrl)
         val expected = runCatching { directory.episodeCountForFeed(feedUrl) }.getOrNull()
         return ArchiveProbe.evaluate(feedUrl, archive, expected)
     }
+
+    /**
+     * Off the main thread as a whole. Only the HTTP call inside switches
+     * dispatchers on its own; parsing up to fifty multi-megabyte feed pages and
+     * sorting the result would otherwise run on whichever thread called - the
+     * main thread, from the add-show screen - and freeze the app for seconds.
+     */
+    private suspend fun fetchArchive(feedUrl: String): PagedArchive =
+        withContext(Dispatchers.Default) { archiveFetcher.fetchArchive(feedUrl) }
 
     private suspend fun ingest(
         showId: Long,

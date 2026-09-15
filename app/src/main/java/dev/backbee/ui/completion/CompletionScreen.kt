@@ -21,15 +21,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.backbee.core.playback.ArchiveProgress
 import dev.backbee.ui.components.Artwork
-import dev.backbee.ui.components.BrutalButton
-import dev.backbee.ui.components.BrutalPanel
+import dev.backbee.ui.components.CarbonButton
+import dev.backbee.ui.components.CarbonPanel
 import dev.backbee.ui.components.Glyph
 import dev.backbee.ui.components.Label
-import dev.backbee.ui.components.Mono
 import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
-import dev.backbee.ui.theme.Shadow
-import dev.backbee.ui.theme.Stroke
 import dev.backbee.ui.theme.backbeeColors
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -54,17 +51,17 @@ fun CompletionScreen(
     ) {
         item {
             Column {
-                Label("[Archive complete]", color = colors.textAccent)
+                Label("Archive complete", color = colors.textAccent)
                 Spacer(Modifier.height(Dimens.space3))
                 Text("You finished", style = BackbeeType.displayMedium, color = colors.textPrimary)
                 Text("the book.", style = BackbeeType.displayMedium, color = colors.textAccent)
                 Spacer(Modifier.height(Dimens.space4))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Artwork(state.show?.artworkUrl, state.show?.title, size = 72.dp)
-                    Mono(
-                        text = "${state.show?.title.orEmpty().uppercase()} · " +
-                            "${state.stats?.episodeCount ?: 0} EPISODES",
-                        style = BackbeeType.monoSmall,
+                    Text(
+                        text = "${state.show?.title.orEmpty()} · " +
+                            "${state.stats?.episodeCount ?: 0} episodes",
+                        style = BackbeeType.bodySmall,
                         color = colors.textMuted,
                         modifier = Modifier.padding(start = Dimens.space3),
                     )
@@ -75,27 +72,27 @@ fun CompletionScreen(
         state.stats?.let { stats ->
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(Dimens.space3)) {
-                    StatBlock(stats.listenedHours.roundToInt().toString(), "HOURS LISTENED", Modifier.weight(1f))
+                    StatBlock(stats.listenedHours.roundToInt().toString(), "Hours listened", Modifier.weight(1f))
                     StatBlock(
                         String.format(Locale.US, "%.1f", (stats.elapsedDays ?: 0L) / 365.0),
-                        "YEARS OF ARCHIVE",
+                        "Years of archive",
                         Modifier.weight(1f),
                     )
                 }
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(Dimens.space3)) {
-                    StatBlock("${ArchiveProgress.formatSpeed(stats.averageSpeed)}×", "AVERAGE SPEED", Modifier.weight(1f))
+                    StatBlock("${ArchiveProgress.formatSpeed(stats.averageSpeed)}×", "Average speed", Modifier.weight(1f))
                     StatBlock(
                         String.format(Locale.US, "%.1f", stats.episodesPerWeek ?: 0.0),
-                        "EPS PER WEEK",
+                        "Episodes per week",
                         Modifier.weight(1f),
                     )
                 }
             }
             stats.dateRange()?.let { range ->
                 item {
-                    Mono(range.uppercase(), style = BackbeeType.monoSmall, color = colors.textMuted)
+                    Text(range, style = BackbeeType.bodySmall, color = colors.textMuted)
                 }
             }
         }
@@ -104,7 +101,7 @@ fun CompletionScreen(
             item { Label("Starred — ${state.starred.size} episodes") }
             items(state.starred, key = { it.id }) { row ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                    Mono(Glyph.STARRED, style = BackbeeType.monoSmall, color = colors.textAccent)
+                    Text(Glyph.STARRED, style = BackbeeType.bodySmall, color = colors.textAccent)
                     Text(
                         " ${row.episodeNumber ?: (row.orderIndex + 1)} · ${row.title}",
                         style = BackbeeType.bodySmall,
@@ -120,15 +117,15 @@ fun CompletionScreen(
 
         if (state.otherShows.isEmpty()) {
             item {
-                Mono(
-                    "NOTHING ELSE WAITING. ADD A SHOW FROM THE SHELF WHEN YOU ARE READY.",
-                    style = BackbeeType.monoSmall,
+                Text(
+                    "Nothing else waiting. add a show from the shelf when you are ready.",
+                    style = BackbeeType.bodySmall,
                     color = colors.textMuted,
                 )
             }
         } else {
             items(state.otherShows, key = { it.id }) { show ->
-                BrutalPanel(Modifier.fillMaxWidth(), shadow = Shadow.sm, borderWidth = Stroke.thin) {
+                CarbonPanel(Modifier.fillMaxWidth()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Artwork(show.artworkUrl, show.title)
                         Text(
@@ -140,13 +137,13 @@ fun CompletionScreen(
                             modifier = Modifier.weight(1f).padding(horizontal = Dimens.space3),
                         )
                     }
-                    BrutalButton(
+                    CarbonButton(
                         onClick = { viewModel.activateShow(show.id, onActivatedNextShow) },
-                        shadow = Shadow.sm,
-                        minHeight = 44.dp,
+
+                        minHeight = 48.dp,
                         modifier = Modifier.padding(top = Dimens.space2),
                     ) {
-                        Mono("START THIS", style = BackbeeType.monoSmall, color = colors.onAccentPrimary)
+                        Label("Start this", style = BackbeeType.bodySmall, color = colors.onAccentPrimary)
                     }
                 }
             }
@@ -156,8 +153,8 @@ fun CompletionScreen(
 
 @Composable
 private fun StatBlock(value: String, label: String, modifier: Modifier = Modifier) {
-    BrutalPanel(modifier, shadow = Shadow.sm) {
+    CarbonPanel(modifier) {
         Text(value, style = BackbeeType.displaySmall, color = backbeeColors.textAccent)
-        Mono(label, style = BackbeeType.monoMicro, color = backbeeColors.textMuted)
+        Text(label, style = BackbeeType.labelSmall, color = backbeeColors.textMuted)
     }
 }

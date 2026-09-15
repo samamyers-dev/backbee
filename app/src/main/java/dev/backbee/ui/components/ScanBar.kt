@@ -1,7 +1,7 @@
 package dev.backbee.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -23,6 +23,10 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.key.*
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -70,7 +74,7 @@ fun ScanBar(
         ?: if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
 
     fun seekToFraction(value: Float) {
-        if (durationMs <= 0) return
+        if (durationMs <= 0 || !value.isFinite()) return
         val clamped = value.coerceIn(0f, 1f)
         pendingFraction = clamped
         onSeek((clamped * durationMs).toLong())
@@ -80,10 +84,23 @@ fun ScanBar(
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(44.dp)
-                .background(colors.bgPanel)
-                .border(Stroke.divider, colors.borderColor)
-                .semantics { contentDescription = "Scan through the episode" }
+                .height(48.dp)
+                .semantics {
+                    contentDescription = "Scan through the episode"
+                    progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
+                    if (durationMs > 0) setProgress { value ->
+                        if (value.isFinite()) { seekToFraction(value); true } else false
+                    }
+                }
+                .onKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown || durationMs <= 0) false
+                    else when (event.key) {
+                        Key.DirectionRight -> { seekToFraction(fraction + 0.05f); true }
+                        Key.DirectionLeft -> { seekToFraction(fraction - 0.05f); true }
+                        else -> false
+                    }
+                }
+                .focusable()
                 .pointerInput(durationMs) {
                     if (durationMs <= 0) return@pointerInput
                     detectTapGestures { offset -> seekToFraction(offset.x / size.width) }
@@ -107,9 +124,12 @@ fun ScanBar(
                 }
                 .drawBehind {
                     val at = size.width * fraction
-                    drawRect(colors.accentPrimary, Offset.Zero, Size(at, size.height))
-                    // The same heavy square marker the archive spine uses.
-                    drawRect(colors.accentSecondary, Offset(at - 2f, 0f), Size(4f, size.height))
+                    val track = 4.dp.toPx()
+                    val y = (size.height - track) / 2
+                    drawRect(colors.borderStrong, Offset(0f, y), Size(size.width, track))
+                    drawRect(colors.textPrimary, Offset(0f, y), Size(at, track))
+                    val radius = 7.dp.toPx()
+                    drawCircle(colors.textPrimary, radius, Offset(at.coerceIn(radius, size.width.coerceAtLeast(radius * 2) - radius), size.height / 2))
                 },
         )
 
@@ -130,10 +150,12 @@ fun ScanBar(
             }
             onCollapse?.let { collapse ->
                 Mono(
-                    text = "  HIDE ⇄",
+                    text = "Hide",
                     style = BackbeeType.monoSmall,
                     color = colors.textMuted,
-                    modifier = Modifier.clickable(onClickLabel = "Hide the scan bar", onClick = collapse),
+                    modifier = Modifier
+                        .clickable(onClickLabel = "Hide the scan bar", onClick = collapse)
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
                 )
             }
         }

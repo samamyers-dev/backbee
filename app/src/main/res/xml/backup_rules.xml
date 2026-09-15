@@ -7,6 +7,9 @@
 <full-backup-content>
     <include domain="database" path="." />
     <include domain="sharedpref" path="." />
+    <!-- Settings and the loaded-episode marker live in DataStore, which is a
+         file, not a shared preference. -->
+    <include domain="file" path="datastore/" />
     <exclude domain="file" path="episodes/" />
     <exclude domain="external" path="episodes/" />
 </full-backup-content>

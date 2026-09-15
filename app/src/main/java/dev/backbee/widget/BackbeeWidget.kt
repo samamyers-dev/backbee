@@ -2,11 +2,14 @@ package dev.backbee.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import androidx.glance.color.ColorProvider
+import androidx.glance.text.FontFamily
+import androidx.glance.layout.Box
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
-import androidx.glance.GlanceTheme
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -50,9 +53,7 @@ class BackbeeWidget : GlanceAppWidget() {
         val subtitle = target?.let { "Ep ${it.episodeNumber ?: (it.orderIndex + 1)}" } ?: "Add a show"
 
         provideContent {
-            GlanceTheme {
-                WidgetBody(title = title, subtitle = subtitle)
-            }
+            WidgetBody(title = title, subtitle = subtitle)
         }
     }
 }
@@ -62,27 +63,28 @@ private fun WidgetBody(title: String, subtitle: String) {
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(GlanceTheme.colors.widgetBackground)
-            .padding(12.dp),
+            .background(ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFF262626)))
+            .padding(16.dp),
         verticalAlignment = Alignment.Vertical.CenterVertically,
     ) {
         Text(
             text = title,
             maxLines = 2,
             style = TextStyle(
-                color = GlanceTheme.colors.onSurface,
-                fontSize = 15.sp,
+                color = ColorProvider(day = Color(0xFF161616), night = Color(0xFFF4F4F4)),
+                fontFamily = FontFamily.SansSerif,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
             ),
         )
         Text(
             text = subtitle,
-            style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 12.sp),
+            style = TextStyle(color = ColorProvider(day = Color(0xFF525252), night = Color(0xFFC6C6C6)), fontFamily = FontFamily.SansSerif, fontSize = 12.sp),
         )
         Spacer(GlanceModifier.height(8.dp))
         Row(modifier = GlanceModifier.fillMaxWidth()) {
             WidgetButton(
-                label = "Play / Pause",
+                label = "Play / pause",
                 modifier = GlanceModifier.clickable(actionRunCallback<TogglePlaybackAction>()),
             )
             Spacer(GlanceModifier.width(8.dp))
@@ -96,17 +98,23 @@ private fun WidgetBody(title: String, subtitle: String) {
 
 @Composable
 private fun WidgetButton(label: String, modifier: GlanceModifier = GlanceModifier) {
-    Text(
-        text = label,
+    Box(
         modifier = modifier
-            .background(GlanceTheme.colors.primaryContainer)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        style = TextStyle(
-            color = GlanceTheme.colors.onPrimaryContainer,
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
-        ),
-    )
+            .height(48.dp)
+            .background(Color(0xFF0F62FE))
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = TextStyle(
+                color = androidx.glance.unit.ColorProvider(Color.White),
+                fontFamily = FontFamily.SansSerif,
+                fontWeight = FontWeight.Normal,
+                fontSize = 14.sp,
+            ),
+        )
+    }
 }
 
 class TogglePlaybackAction : ActionCallback {

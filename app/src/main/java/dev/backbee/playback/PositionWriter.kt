@@ -23,8 +23,16 @@ import kotlinx.coroutines.launch
  * than something we hope the pause callback covers.
  */
 class PositionWriter(
+    /** Drives the five-second ticker; lives and dies with the service. */
     private val scope: CoroutineScope,
     private val repository: PlaybackRepository,
+    /**
+     * Runs the database writes. Defaults to [scope], but the service passes the
+     * application scope so the final flush in onDestroy cannot be cancelled by
+     * the service's own teardown a few lines later - which is the one write
+     * that matters most when the OS kills a paused service.
+     */
+    private val writeScope: CoroutineScope = scope,
     private val onEpisodeFinished: suspend (episodeId: Long) -> Unit,
     private val onFlushed: () -> Unit = {},
     /**
@@ -87,8 +95,20 @@ class PositionWriter(
             val episodeId = MediaItems.episodeIdOf(oldPosition.mediaItem)
             if (episodeId != null) finish(episodeId, oldPosition.positionMs / 1000)
         } else {
-            // A seek. Persist immediately so a crash right after does not undo it.
-            flush("seek")
+            val outgoing = oldPosition.mediaItem
+            val incoming = newPosition.mediaItem
+            if (outgoing != null && outgoing.mediaId != incoming?.mediaId) {
+                // A manual switch: Next, a tap in the archive, mark-and-next.
+                // The player already holds the incoming episode, so a plain
+                // flush would record the wrong one. Save the outgoing episode
+                // where it was left; the incoming one gets its first tick soon.
+                MediaItems.episodeIdOf(outgoing)?.let { id ->
+                    save(id, oldPosition.positionMs.coerceAtLeast(0) / 1000, "switched away")
+                }
+            } else {
+                // A seek. Persist immediately so a crash right after does not undo it.
+                flush("seek")
+            }
         }
     }
 
@@ -111,18 +131,20 @@ class PositionWriter(
     fun flush(reason: String) {
         val player = player ?: return
         val episodeId = MediaItems.episodeIdOf(player.currentMediaItem) ?: return
-        val positionSeconds = player.currentPosition.coerceAtLeast(0) / 1000
+        save(episodeId, player.currentPosition.coerceAtLeast(0) / 1000, reason)
+    }
 
-        scope.launch {
+    private fun save(episodeId: Long, positionSeconds: Long, reason: String) {
+        writeScope.launch {
             runCatching { repository.savePosition(episodeId, positionSeconds) }
                 .onSuccess { onFlushed() }
                 .onFailure { Log.e(TAG, "Failed to persist position for $episodeId", it) }
         }
-        Log.d(TAG, "flush($reason) episode=$episodeId at=${positionSeconds}s")
+        Log.d(TAG, "save($reason) episode=$episodeId at=${positionSeconds}s")
     }
 
     private fun finish(episodeId: Long, positionSeconds: Long) {
-        scope.launch {
+        writeScope.launch {
             runCatching {
                 repository.markPlayed(episodeId, positionSeconds)
                 onEpisodeFinished(episodeId)
@@ -132,7 +154,7 @@ class PositionWriter(
 
     private fun recordLoadedEpisode() {
         val episodeId = player?.currentMediaItem?.let { MediaItems.episodeIdOf(it) }
-        scope.launch {
+        writeScope.launch {
             runCatching { onLoadedEpisodeChanged(episodeId) }
                 .onFailure { Log.w(TAG, "Failed to record the loaded episode", it) }
         }
@@ -145,7 +167,7 @@ class PositionWriter(
         if (duration <= 0) return
         // Feeds often omit <itunes:duration>. Once the decoder knows the real
         // length, keep it so "hours left" stops undercounting.
-        scope.launch {
+        writeScope.launch {
             runCatching { repository.recordMeasuredDuration(episodeId, duration / 1000) }
         }
     }

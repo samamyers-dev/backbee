@@ -8,7 +8,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -60,6 +59,8 @@ fun NowPlayingBar(
     durationMs: Long,
     isPlaying: Boolean,
     isBuffering: Boolean,
+    skipBackSeconds: Int = 10,
+    skipForwardSeconds: Int = 30,
     onOpen: () -> Unit,
     onTogglePlay: () -> Unit,
     onSkipBack: () -> Unit,
@@ -69,76 +70,62 @@ fun NowPlayingBar(
     val colors = backbeeColors
     val fraction = if (durationMs <= 0) 0f else (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
 
-    Column(modifier.fillMaxWidth().background(colors.bgPanel)) {
-        // A hairline rather than a track: at this size a bordered progress bar
-        // reads as a control you could drag, and this one is not draggable.
-        Box(Modifier.fillMaxWidth().height(3.dp).background(colors.borderColor.copy(alpha = 0.25f))) {
-            Box(Modifier.fillMaxWidth(fraction).height(3.dp).background(colors.accentPrimary))
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClickLabel = "Open the playing episode", onClick = onOpen)
-                .padding(horizontal = Dimens.space3, vertical = Dimens.space2),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Dimens.space3),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Artwork(artworkUrl, title, size = 44.dp)
-                // Over the artwork, so the motion is where the eye already is,
-                // on a scrim so the bars read against whatever the art happens
-                // to be.
-                VisualizerBackdrop(Modifier.size(44.dp))
-                Visualizer(playing = isPlaying, modifier = Modifier.size(26.dp))
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier.fillMaxWidth().background(colors.bgPanel)) {
+        val stacked = maxWidth < 360.dp || androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f
+        Column {
+            CarbonProgress(fraction, height = 3.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .clickable(onClickLabel = "Open the playing episode", role = Role.Button, onClick = onOpen)
+                    .padding(horizontal = Dimens.space3, vertical = Dimens.space2),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Dimens.space3),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Artwork(artworkUrl, title, size = 44.dp)
+                    VisualizerBackdrop(Modifier.size(44.dp))
+                    Visualizer(playing = isPlaying, modifier = Modifier.size(26.dp))
+                }
+                Column(Modifier.weight(1f)) {
+                    Mono(
+                        text = if (isBuffering) "Buffering…" else subtitle.orEmpty(),
+                        style = BackbeeType.monoMicro,
+                        color = if (isBuffering) colors.textSecondary else colors.textAccent,
+                        maxLines = 1,
+                    )
+                    Text(title, style = BackbeeType.bodySmall, color = colors.textPrimary,
+                        maxLines = if (stacked) 2 else 1, overflow = TextOverflow.Ellipsis)
+                    Mono(
+                        text = ArchiveProgress.formatClock(positionMs.coerceAtLeast(0) / 1000) +
+                            if (durationMs > 0) "  −${ArchiveProgress.formatClock((durationMs - positionMs).coerceAtLeast(0) / 1000)}" else "",
+                        style = BackbeeType.monoMicro, color = colors.textMuted, maxLines = 1,
+                    )
+                }
+                if (!stacked) TransportKeys(isPlaying, skipBackSeconds, skipForwardSeconds, onTogglePlay, onSkipBack, onSkipForward)
             }
-
-            Column(Modifier.weight(1f)) {
-                Mono(
-                    text = when {
-                        isBuffering -> "BUFFERING…"
-                        else -> subtitle?.uppercase().orEmpty()
-                    },
-                    style = BackbeeType.monoMicro,
-                    color = if (isBuffering) colors.textSecondary else colors.textAccent,
-                    maxLines = 1,
-                )
-                Text(
-                    text = title,
-                    style = BackbeeType.bodySmall,
-                    color = colors.textPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Mono(
-                    text = ArchiveProgress.formatClock(positionMs / 1000) +
-                        if (durationMs > 0) "  −${ArchiveProgress.formatClock((durationMs - positionMs) / 1000)}" else "",
-                    style = BackbeeType.monoMicro,
-                    color = colors.textMuted,
-                    maxLines = 1,
-                )
+            if (stacked) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    TransportKeys(isPlaying, skipBackSeconds, skipForwardSeconds, onTogglePlay, onSkipBack, onSkipForward)
+                }
             }
-
-            BarKey("−10", contentDescription = "Skip back ten seconds", onClick = onSkipBack)
-            BarKey(
-                label = if (isPlaying) "❚❚" else "▶",
-                // The glyph is a typographic stand-in for an icon; read aloud it
-                // is a pair of box-drawing characters, so the label has to be
-                // spelled out rather than left to the text.
-                contentDescription = if (isPlaying) "Pause" else "Play",
-                onClick = onTogglePlay,
-                background = colors.accentPrimary,
-                contentColor = colors.onAccentPrimary,
-            )
-            BarKey("+30", contentDescription = "Skip forward thirty seconds", onClick = onSkipForward)
         }
     }
 }
 
-/**
- * A square key sized for a thumb without a glance. Not [BrutalButton]: that
- * reserves room for its shadow, which at bar height eats the whole row.
- */
+@Composable
+private fun TransportKeys(
+    isPlaying: Boolean, skipBackSeconds: Int, skipForwardSeconds: Int,
+    onTogglePlay: () -> Unit, onSkipBack: () -> Unit, onSkipForward: () -> Unit,
+) {
+    BarKey("−$skipBackSeconds", "Skip back $skipBackSeconds seconds", onSkipBack)
+    BarKey(if (isPlaying) "❚❚" else "▶", if (isPlaying) "Pause" else "Play", onTogglePlay,
+        background = backbeeColors.accentPrimary, contentColor = backbeeColors.onAccentPrimary)
+    BarKey("+$skipForwardSeconds", "Skip forward $skipForwardSeconds seconds", onSkipForward)
+}
+
+/** Flat icon key with a full native touch target. */
 @Composable
 private fun BarKey(
     label: String,
@@ -151,7 +138,6 @@ private fun BarKey(
         modifier = Modifier
             .size(48.dp)
             .background(background)
-            .border(Stroke.divider, backbeeColors.borderColor)
             .clickable(onClickLabel = contentDescription, onClick = onClick)
             .semantics {
                 this.contentDescription = contentDescription
@@ -192,7 +178,7 @@ private fun Visualizer(
         ),
         label = "phase",
     )
-    Canvas(modifier) { drawBars(bars, colors.accentPrimary) { levelFor(phase, it) } }
+    Canvas(modifier) { drawBars(bars, colors.brandAccent) { levelFor(phase, it) } }
 }
 
 /**
@@ -202,17 +188,9 @@ private fun Visualizer(
  */
 private const val FLAT_LEVEL = 0.24f
 
-/**
- * The chip is a dark lens over the artwork in both themes rather than the
- * theme's inverse surface. The accent is ochre, which sits at 4.6:1 on espresso
- * and 1.9:1 on paper - flipping the backdrop with the theme would make the bars
- * disappear in dark mode exactly as it did to the readout text.
- *
- * Nearly opaque, because the artwork placeholder draws the show's initials and
- * at 77% they showed through the bars as debris.
- */
-private val Scrim = Color(0xF02E2824)
-private val ScrimForeground = Color(0xB3F2EDE4)
+/** Fixed Gray 100 scrim keeps the small ochre brand detail legible over any artwork. */
+private val Scrim = Color(0xF0161616)
+private val ScrimForeground = Color(0xFFC6C6C6)
 
 private fun DrawScope.drawBars(
     bars: Int,

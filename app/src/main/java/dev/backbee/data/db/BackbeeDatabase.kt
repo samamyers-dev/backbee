@@ -19,6 +19,12 @@ class Converters {
     fun fromDownloadState(state: DownloadState?): String? = state?.name
 }
 
+/**
+ * Bump together with a Migration and a committed schema JSON. Top-level so the
+ * annotation below and the restore check compare against the same number.
+ */
+internal const val BACKBEE_DB_VERSION = 2
+
 @Database(
     entities = [
         ShowEntity::class,
@@ -27,7 +33,7 @@ class Converters {
         MarkEntity::class,
         DownloadEntity::class,
     ],
-    version = 2,
+    version = BACKBEE_DB_VERSION,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -41,6 +47,9 @@ abstract class BackbeeDatabase : RoomDatabase() {
 
     companion object {
         const val NAME = "backbee.db"
+
+        /** What a restore checks a backup's user_version against. */
+        const val VERSION = BACKBEE_DB_VERSION
 
         /**
          * Cascading deletes only fire when foreign keys are switched on, and Room

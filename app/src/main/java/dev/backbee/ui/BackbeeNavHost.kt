@@ -1,7 +1,11 @@
 package dev.backbee.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,8 +24,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,6 +34,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import dev.backbee.data.prefs.Settings
 import dev.backbee.di.AppContainer
 import dev.backbee.playback.PlayerConnection
 import dev.backbee.ui.archive.ArchiveScreen
@@ -40,8 +43,7 @@ import dev.backbee.ui.archive.EpisodeDetailScreen
 import dev.backbee.ui.archive.EpisodeDetailViewModel
 import dev.backbee.ui.completion.CompletionScreen
 import dev.backbee.ui.completion.CompletionViewModel
-import dev.backbee.ui.components.BrutalDivider
-import dev.backbee.ui.components.Mono
+import dev.backbee.ui.components.CarbonDivider
 import dev.backbee.ui.components.NowPlayingBar
 import dev.backbee.ui.downloads.DownloadsScreen
 import dev.backbee.ui.downloads.DownloadsViewModel
@@ -52,7 +54,6 @@ import dev.backbee.ui.settings.SettingsViewModel
 import dev.backbee.ui.shelf.ShelfScreen
 import dev.backbee.ui.shelf.ShelfViewModel
 import dev.backbee.ui.theme.BackbeeType
-import dev.backbee.ui.theme.Stroke
 import dev.backbee.ui.theme.backbeeColors
 
 private object Routes {
@@ -68,11 +69,13 @@ private object Routes {
     fun completion(showId: Long) = "completion/$showId"
 }
 
-/** The three tabs from the spec. Everything else is reached from inside them. */
+/** Carbon tab navigation: neutral surfaces, a blue indicator, full mobile targets. */
 private val TABS = listOf(
-    Routes.NOW to "NOW",
-    Routes.ARCHIVE to "ARCHIVE",
-    Routes.SHELF to "SHELF",
+    Routes.NOW to "Now",
+    Routes.ARCHIVE to "Archive",
+    Routes.SHELF to "Shelf",
+    Routes.DOWNLOADS to "Downloads",
+    Routes.SETTINGS to "Settings",
 )
 
 @Composable
@@ -85,6 +88,9 @@ fun BackbeeNavHost(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val playerState by player.state.collectAsStateWithLifecycle()
+    // The bar's skip keys are labelled with the configured increments, so
+    // they cannot say "−10" while the setting says fifteen.
+    val settings by container.settingsStore.settings.collectAsStateWithLifecycle(initialValue = Settings())
     val colors = backbeeColors
 
     Column(modifier.fillMaxSize().background(colors.bgPage)) {
@@ -115,7 +121,7 @@ fun BackbeeNavHost(
                 }
 
                 composable(Routes.SHELF) {
-                    val vm: ShelfViewModel = viewModel(factory = viewModelFactory { ShelfViewModel(container) })
+                    val vm: ShelfViewModel = viewModel(factory = viewModelFactory { ShelfViewModel(container, player) })
                     ShelfScreen(
                         viewModel = vm,
                         onOpenCompletion = { navController.navigate(Routes.completion(it)) },
@@ -156,7 +162,7 @@ fun BackbeeNavHost(
                 }
 
                 composable(Routes.SETTINGS) {
-                    val vm: SettingsViewModel = viewModel(factory = viewModelFactory { SettingsViewModel(container) })
+                    val vm: SettingsViewModel = viewModel(factory = viewModelFactory { SettingsViewModel(container, player) })
                     SettingsScreen(viewModel = vm)
                 }
 
@@ -183,7 +189,7 @@ fun BackbeeNavHost(
         // Outside the NavHost on purpose: this is the one surface that has to
         // survive every tab switch, so it cannot live inside a destination.
         if (playerState.hasEpisode) {
-            BrutalDivider(thickness = Stroke.thick)
+            CarbonDivider()
             NowPlayingBar(
                 title = playerState.title.orEmpty(),
                 subtitle = playerState.subtitle,
@@ -192,6 +198,8 @@ fun BackbeeNavHost(
                 durationMs = playerState.durationMs,
                 isPlaying = playerState.isPlaying,
                 isBuffering = playerState.isBuffering,
+                skipBackSeconds = settings.skipBackSeconds,
+                skipForwardSeconds = settings.skipForwardSeconds,
                 onOpen = {
                     // The bar is the way back to the playing episode's page from
                     // anywhere. Only when nothing identifies the episode does it
@@ -218,72 +226,52 @@ fun BackbeeNavHost(
             )
         }
 
-        BrutalDivider(thickness = Stroke.thick)
+        CarbonDivider()
         Row(
             Modifier
                 .fillMaxWidth()
                 .background(colors.bgPanel)
-                .navigationBarsPadding(),
+                .navigationBarsPadding()
+                .selectableGroup(),
         ) {
             TABS.forEach { (route, label) ->
-                val selected = currentRoute == route
+                val selected = currentRoute == route ||
+                    (route == Routes.ARCHIVE && currentRoute == Routes.EPISODE) ||
+                    (route == Routes.SHELF && currentRoute == Routes.COMPLETION)
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clickable {
-                            if (!selected) {
-                                navController.navigate(route) {
-                                    // Tabs are destinations, not a stack: going
-                                    // back from any of them leaves the app.
-                                    popUpTo(Routes.NOW) { inclusive = route == Routes.NOW }
-                                    launchSingleTop = true
+                        .selectable(
+                            selected = selected,
+                            role = Role.Tab,
+                            onClick = {
+                                if (currentRoute != route) {
+                                    navController.navigate(route) {
+                                        popUpTo(Routes.NOW) { inclusive = route == Routes.NOW }
+                                        launchSingleTop = true
+                                    }
                                 }
-                            }
-                        }
-                        .background(if (selected) colors.accentPrimary else colors.bgPanel)
-                        .padding(vertical = 18.dp)
-                        .semantics(mergeDescendants = true) {
-                            role = Role.Tab
-                            this.selected = selected
-                        },
+                            },
+                        )
+                        .heightIn(min = 48.dp)
+                        .semantics(mergeDescendants = true) { contentDescription = label },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Mono(
+                    if (selected) {
+                        Box(
+                            Modifier.align(Alignment.TopCenter)
+                                .fillMaxWidth()
+                                .height(2.dp)
+                                .background(colors.interactive),
+                        )
+                    }
+                    Text(
                         text = label,
-                        style = BackbeeType.label,
-                        color = if (selected) colors.onAccentPrimary else colors.textMuted,
+                        style = BackbeeType.labelSmall,
+                        color = if (selected) colors.textPrimary else colors.textSecondary,
+                        modifier = Modifier.padding(vertical = 16.dp),
                     )
                 }
-            }
-            // Settings and Downloads are rare surfaces, so they get a narrow
-            // slot rather than a tab of their own.
-            // Both slots are a bare glyph, which a screen reader either skips or
-            // reads as punctuation, so each carries its name instead.
-            Box(
-                modifier = Modifier
-                    .weight(0.6f)
-                    .clickable { navController.navigate(Routes.DOWNLOADS) { launchSingleTop = true } }
-                    .padding(vertical = 18.dp)
-                    .semantics(mergeDescendants = true) {
-                        contentDescription = "Downloads"
-                        role = Role.Tab
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Mono("▼", style = BackbeeType.label, color = backbeeColors.textMuted)
-            }
-            Box(
-                modifier = Modifier
-                    .weight(0.6f)
-                    .clickable { navController.navigate(Routes.SETTINGS) { launchSingleTop = true } }
-                    .padding(vertical = 18.dp)
-                    .semantics(mergeDescendants = true) {
-                        contentDescription = "Settings"
-                        role = Role.Tab
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Mono("⚙", style = BackbeeType.label, color = backbeeColors.textMuted)
             }
         }
     }

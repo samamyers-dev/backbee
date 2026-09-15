@@ -1,7 +1,6 @@
 package dev.backbee.ui.now
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +22,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -37,20 +40,17 @@ import dev.backbee.data.db.EpisodeRow
 import dev.backbee.playback.PlayerConnection
 import dev.backbee.playback.PlayerState
 import dev.backbee.ui.components.Artwork
-import dev.backbee.ui.components.BrutalButton
-import dev.backbee.ui.components.BrutalOutlineButton
-import dev.backbee.ui.components.BrutalPanel
+import dev.backbee.ui.components.CarbonButton
+import dev.backbee.ui.components.CarbonOutlineButton
+import dev.backbee.ui.components.CarbonPanel
 import dev.backbee.ui.components.EmptyState
 import dev.backbee.ui.components.Glyph
 import dev.backbee.ui.components.GlyphText
 import dev.backbee.ui.components.Label
-import dev.backbee.ui.components.Mono
 import dev.backbee.ui.components.Readout
 import dev.backbee.ui.components.ScanBar
 import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
-import dev.backbee.ui.theme.Shadow
-import dev.backbee.ui.theme.Stroke
 import dev.backbee.ui.theme.backbeeColors
 
 /**
@@ -70,6 +70,7 @@ fun NowScreen(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val skipSeconds by viewModel.skipSeconds.collectAsStateWithLifecycle()
     val playerState by player.state.collectAsStateWithLifecycle()
 
     when {
@@ -81,11 +82,11 @@ fun NowScreen(
                 "Everything after that happens without you.",
             modifier = modifier,
             readout = listOf(
-                "NO ACCOUNT REQUIRED",
-                "NO SYNC. NO BACKEND.",
-                "ONE SHOW AT A TIME, ON PURPOSE.",
+                "No account required",
+                "No sync. no backend.",
+                "One show at a time, on purpose.",
             ),
-            action = { BrutalButton(onClick = onOpenShelf) { Label("Add a show", color = backbeeColors.onAccentPrimary) } },
+            action = { CarbonButton(onClick = onOpenShelf) { Label("Add a show", color = backbeeColors.onAccentPrimary) } },
         )
 
         // A finished archive still yields to the player: someone re-listening to
@@ -96,7 +97,7 @@ fun NowScreen(
                 "then pick the next one off the shelf.",
             modifier = modifier,
             action = {
-                BrutalButton(onClick = { state.show?.let { onOpenCompletion(it.id) } }) {
+                CarbonButton(onClick = { state.show?.let { onOpenCompletion(it.id) } }) {
                     Label("See the recap", color = backbeeColors.onAccentPrimary)
                 }
             },
@@ -106,6 +107,7 @@ fun NowScreen(
             state = state,
             playerState = playerState,
             player = player,
+            skipSeconds = skipSeconds,
             onOpenArchive = onOpenArchive,
             onOpenCompletion = onOpenCompletion,
             onCycleSpeed = { viewModel.setSpeed(PlaybackSpeeds.next(state.show?.speed ?: 1f)) },
@@ -123,6 +125,8 @@ private fun SpineNow(
     state: NowUiState,
     playerState: PlayerState,
     player: PlayerConnection,
+    /** Skip back and skip forward in seconds, for the key labels. */
+    skipSeconds: Pair<Int, Int>,
     onOpenArchive: () -> Unit,
     onOpenCompletion: (Long) -> Unit,
     onCycleSpeed: () -> Unit,
@@ -147,9 +151,9 @@ private fun SpineNow(
             Column(Modifier.padding(start = Dimens.space4)) {
                 Label(state.show?.title.orEmpty(), color = colors.textMuted)
                 state.downloadedAhead.takeIf { it > 0 }?.let {
-                    Mono(
-                        text = "$it DOWNLOADED",
-                        style = BackbeeType.monoSmall,
+                    Text(
+                        text = "$it downloaded",
+                        style = BackbeeType.bodySmall,
                         color = colors.textFunctional,
                         modifier = Modifier.padding(top = 4.dp),
                     )
@@ -178,12 +182,12 @@ private fun SpineNow(
         }
 
         target?.let { row ->
-            Mono(
+            Text(
                 text = listOfNotNull(
-                    row.pubDate?.let { java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.US).format(java.util.Date(it)).uppercase() },
+                    row.pubDate?.let { java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.US).format(java.util.Date(it)) },
                     row.durationSeconds?.let { ArchiveProgress.formatDuration(it) },
                 ).joinToString("  ·  "),
-                style = BackbeeType.monoSmall,
+                style = BackbeeType.bodySmall,
                 color = colors.textMuted,
                 modifier = Modifier.padding(top = Dimens.space2),
             )
@@ -201,9 +205,9 @@ private fun SpineNow(
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(Dimens.space2))
-            Mono(
-                text = progress.summary().uppercase(),
-                style = BackbeeType.monoSmall,
+            Text(
+                text = progress.summary(),
+                style = BackbeeType.bodySmall,
                 color = colors.textMuted,
             )
         }
@@ -230,27 +234,27 @@ private fun SpineNow(
             Spacer(Modifier.height(Dimens.space5))
             Readout(
                 lines = listOf(
-                    "PLAYING OUT OF SEQUENCE",
-                    "YOUR PLACE IS STILL EP ${leftOff?.episodeNumber ?: ((leftOff?.orderIndex ?: 0) + 1)}",
+                    "Playing out of sequence",
+                    "Your place is still ep ${leftOff?.episodeNumber ?: ((leftOff?.orderIndex ?: 0) + 1)}",
                 ),
                 tone = colors.onInverseAlert,
             )
             Spacer(Modifier.height(Dimens.space2))
-            BrutalOutlineButton(onClick = { leftOff?.let { player.playEpisode(it.id) } }) {
-                Mono("← BACK TO WHERE YOU LEFT OFF", style = BackbeeType.monoSmall, color = colors.textPrimary)
+            CarbonOutlineButton(onClick = { leftOff?.let { player.playEpisode(it.id) } }) {
+                Label("← Back to where you left off", style = BackbeeType.bodySmall, color = colors.textPrimary)
             }
         }
 
         if (state.archiveComplete) {
             Spacer(Modifier.height(Dimens.space3))
-            BrutalOutlineButton(onClick = { state.show?.let { onOpenCompletion(it.id) } }) {
-                Mono("ARCHIVE COMPLETE · SEE THE RECAP", style = BackbeeType.monoSmall, color = colors.textPrimary)
+            CarbonOutlineButton(onClick = { state.show?.let { onOpenCompletion(it.id) } }) {
+                Label("Archive complete · see the recap", style = BackbeeType.bodySmall, color = colors.textPrimary)
             }
         }
 
         Spacer(Modifier.height(Dimens.space8))
 
-        BrutalButton(
+        CarbonButton(
             onClick = {
                 when {
                     playerState.isPlaying -> player.pause()
@@ -259,11 +263,11 @@ private fun SpineNow(
                     else -> player.resume()
                 }
             },
-            minHeight = 96.dp,
+            minHeight = 64.dp,
         ) {
-            Text(
-                text = if (playerState.isPlaying) "PAUSE" else if ((target?.positionSeconds ?: 0) > 0) "RESUME" else "PLAY",
-                style = BackbeeType.displaySmall,
+            Label(
+                text = if (playerState.isPlaying) "Pause" else if ((target?.positionSeconds ?: 0) > 0) "Resume" else "Play",
+                style = BackbeeType.titleSmall,
                 color = colors.onAccentPrimary,
             )
         }
@@ -271,9 +275,9 @@ private fun SpineNow(
         // The rewind about to be applied, stated before it happens rather than
         // discovered afterwards.
         state.resumeReadout.takeIf { it.isNotEmpty() && !playerState.isPlaying }?.let {
-            Mono(
+            Text(
                 text = it,
-                style = BackbeeType.monoSmall,
+                style = BackbeeType.bodySmall,
                 color = colors.textSecondary,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -285,8 +289,8 @@ private fun SpineNow(
         Spacer(Modifier.height(Dimens.space4))
 
         Row(horizontalArrangement = Arrangement.spacedBy(Dimens.gap)) {
-            TransportKey("−10s", Modifier.weight(1f)) { player.skipBack() }
-            TransportKey("+30s", Modifier.weight(1f)) { player.skipForward() }
+            TransportKey("−${skipSeconds.first}s", Modifier.weight(1f)) { player.skipBack() }
+            TransportKey("+${skipSeconds.second}s", Modifier.weight(1f)) { player.skipForward() }
             // Labelled with the speed, so it had better change the speed. It
             // used to skip to the next episode, which is a bad surprise on a
             // key you press without looking.
@@ -301,8 +305,8 @@ private fun SpineNow(
         // end or hunting the archive for the next one.
         if (playingThis) {
             Spacer(Modifier.height(Dimens.space2))
-            BrutalOutlineButton(onClick = onMarkPlayedAndNext) {
-                Mono("✓ MARK PLAYED · NEXT →", style = BackbeeType.monoSmall, color = colors.textPrimary)
+            CarbonOutlineButton(onClick = onMarkPlayedAndNext) {
+                Label("✓ Mark played · next →", style = BackbeeType.bodySmall, color = colors.textPrimary)
             }
         }
 
@@ -320,14 +324,15 @@ private fun SpineNow(
                     modifier = Modifier.padding(top = Dimens.space3),
                 )
             } else {
-                Mono(
+                Text(
                     text = "${ArchiveProgress.formatClock(playerState.positionSeconds)}   " +
                         "−${ArchiveProgress.formatClock(playerState.remainingMs / 1000)}   ⇄",
-                    style = BackbeeType.mono,
+                    style = BackbeeType.body,
                     color = colors.textPrimary,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(onClickLabel = "Scan through the episode") { scanOpen = true }
+                        .heightIn(min = 48.dp)
                         .padding(top = Dimens.space3),
                     textAlign = TextAlign.Center,
                 )
@@ -346,11 +351,8 @@ private fun SpineNow(
         }
 
         Spacer(Modifier.height(Dimens.space4))
-        BrutalButton(
+        CarbonOutlineButton(
             onClick = onOpenArchive,
-            background = colors.bgPanel,
-            contentColor = colors.textPrimary,
-            shadow = Shadow.sm,
         ) {
             Label("Open the archive", color = colors.textPrimary)
         }
@@ -375,9 +377,10 @@ private fun Spine(
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(36.dp)
-                .background(colors.bgPanel)
-                .border(Stroke.divider, colors.borderColor)
+                .height(8.dp)
+                .background(colors.layerSelected)
+                .semantics { progressBarRangeInfo = ProgressBarRangeInfo(fraction.coerceIn(0f, 1f), 0f..1f) }
+
                 .drawBehind {
                     val read = size.width * fraction.coerceIn(0f, 1f)
                     drawRect(colors.accentPrimary, Offset.Zero, Size(read, size.height))
@@ -392,14 +395,14 @@ private fun Spine(
                         drawRect(colors.textMuted, Offset(x - 1f, 0f), Size(2f, size.height))
                     }
                     // Your place itself, heavier than the year ticks.
-                    drawRect(colors.accentSecondary, Offset(read - 2f, 0f), Size(4f, size.height))
+                    drawRect(colors.textPrimary, Offset(read - 2f, 0f), Size(4f, size.height))
                 },
         )
         if (yearMarks.size > 1) {
             Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
-                Mono(yearMarks.first().first.toString(), style = BackbeeType.monoMicro, color = colors.textMuted)
+                Text(yearMarks.first().first.toString(), style = BackbeeType.labelSmall, color = colors.textMuted)
                 Spacer(Modifier.weight(1f))
-                Mono(yearMarks.last().first.toString(), style = BackbeeType.monoMicro, color = colors.textMuted)
+                Text(yearMarks.last().first.toString(), style = BackbeeType.labelSmall, color = colors.textMuted)
             }
         }
     }
@@ -407,31 +410,28 @@ private fun Spine(
 
 @Composable
 private fun TransportKey(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    BrutalButton(
+    CarbonOutlineButton(
         onClick = onClick,
         modifier = modifier,
-        background = backbeeColors.bgPanel,
-        contentColor = backbeeColors.textPrimary,
-        shadow = Shadow.sm,
+
         minHeight = Dimens.touchTarget,
     ) {
-        Mono(label, style = BackbeeType.mono, color = backbeeColors.textPrimary)
+        Label(label, style = BackbeeType.body, color = backbeeColors.textPrimary)
     }
 }
 
 @Composable
 private fun UpNextRow(row: EpisodeRow, onClick: () -> Unit) {
     val colors = backbeeColors
-    BrutalPanel(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shadow = Shadow.sm,
-        borderWidth = Stroke.thin,
+    CarbonPanel(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).heightIn(min = 48.dp),
+
         contentPadding = Dimens.space3,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Mono(
+            Text(
                 text = (row.episodeNumber ?: (row.orderIndex + 1)).toString(),
-                style = BackbeeType.mono,
+                style = BackbeeType.body,
                 color = colors.textAccent,
                 modifier = Modifier.padding(end = Dimens.space3),
             )
@@ -443,11 +443,11 @@ private fun UpNextRow(row: EpisodeRow, onClick: () -> Unit) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Mono(
+                Text(
                     // The one thing worth knowing here: will the next hour work
                     // without signal?
-                    text = if (row.isDownloaded) "ON DEVICE" else "NOT DOWNLOADED",
-                    style = BackbeeType.monoMicro,
+                    text = if (row.isDownloaded) "On device" else "Not downloaded",
+                    style = BackbeeType.labelSmall,
                     color = if (row.isDownloaded) colors.textFunctional else colors.textMuted,
                 )
             }

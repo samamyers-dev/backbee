@@ -1,5 +1,6 @@
 package dev.backbee.playback
 
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService.LibraryParams
@@ -12,6 +13,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import dev.backbee.data.repo.PlaybackRepository
 import dev.backbee.data.repo.ShowRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.guava.future
 
 /**
@@ -36,9 +38,20 @@ class AutoLibraryCallback(
         session: MediaLibrarySession,
         browser: MediaSession.ControllerInfo,
         params: LibraryParams?,
-    ): ListenableFuture<LibraryResult<MediaItem>> = Futures.immediateFuture(
-        LibraryResult.ofItem(MediaItems.browsableItem(ROOT, "backbee"), params)
-    )
+    ): ListenableFuture<LibraryResult<MediaItem>> {
+        // Android 13+'s "recently played" row on the lock screen and in Quick
+        // Settings asks for a recent root and expects a playable item directly
+        // under it, not folders. Give it its own root so it finds one.
+        if (params?.isRecent == true) {
+            val recentParams = LibraryParams.Builder().setRecent(true).build()
+            return Futures.immediateFuture(
+                LibraryResult.ofItem(MediaItems.browsableItem(RECENT, "backbee"), recentParams)
+            )
+        }
+        return Futures.immediateFuture(
+            LibraryResult.ofItem(MediaItems.browsableItem(ROOT, "backbee"), params)
+        )
+    }
 
     override fun onGetChildren(
         session: MediaLibrarySession,
@@ -58,7 +71,7 @@ class AutoLibraryCallback(
                 MediaItems.browsableItem(STARRED, "Starred", show.title),
             )
 
-            RESUME -> listOfNotNull(
+            RESUME, RECENT -> listOfNotNull(
                 playback.resumeTarget(show.id)?.let { MediaItems.forEpisode(it, show) }
             )
 
@@ -91,6 +104,53 @@ class AutoLibraryCallback(
         val show = shows.getShow(row.showId)
         LibraryResult.ofItem(MediaItems.forEpisode(row, show), null)
     }
+
+    // -- Search ---------------------------------------------------------------
+    //
+    // "Play the episode about X on backbee" from the steering wheel. Searches
+    // the active show's titles and descriptions, the same query the Archive
+    // screen's search box runs.
+
+    override fun onSearch(
+        session: MediaLibrarySession,
+        browser: MediaSession.ControllerInfo,
+        query: String,
+        params: LibraryParams?,
+    ): ListenableFuture<LibraryResult<Void>> = scope.future {
+        val count = searchResults(query).size
+        session.notifySearchResultChanged(browser, query, count, params)
+        LibraryResult.ofVoid()
+    }
+
+    override fun onGetSearchResult(
+        session: MediaLibrarySession,
+        browser: MediaSession.ControllerInfo,
+        query: String,
+        page: Int,
+        pageSize: Int,
+        params: LibraryParams?,
+    ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = scope.future {
+        val results = searchResults(query)
+        val pageItems = if (pageSize <= 0) {
+            results
+        } else {
+            val from = (page * pageSize).coerceIn(0, results.size)
+            val to = (from + pageSize).coerceAtMost(results.size)
+            results.subList(from, to)
+        }
+        LibraryResult.ofItemList(ImmutableList.copyOf(pageItems), params)
+    }
+
+    private suspend fun searchResults(query: String): List<MediaItem> {
+        val term = query.trim()
+        if (term.isEmpty()) return emptyList()
+        val show = shows.activeShow() ?: return emptyList()
+        return playback.search(show.id, term).first()
+            .take(AUTO_LIST_LIMIT)
+            .map { MediaItems.forEpisode(it, show) }
+    }
+
+    // -- Playing --------------------------------------------------------------
 
     /**
      * Auto hands back a [MediaItem] carrying only the media id it was given, so
@@ -136,18 +196,46 @@ class AutoLibraryCallback(
             // RESUME as a media id means "wherever you left off", which is
             // what a browsable "Resume" node resolves to when played directly.
             requestedId == null || requestedId == RESUME -> coordinator.planResume()
-            else -> requestedId.toLongOrNull()?.let { coordinator.planEpisode(it) } ?: coordinator.planResume()
+            else -> {
+                // A specific episode plays that episode or nothing. Quietly
+                // playing the resume target instead, because the tapped one
+                // has no audio, would be the wrong episode without a word.
+                val episodeId = requestedId.toLongOrNull()
+                if (episodeId != null) coordinator.planEpisode(episodeId) else coordinator.planResume()
+            }
         }
 
-        if (plan == null) {
-            MediaSession.MediaItemsWithStartPosition(mediaItems, startIndex, startPositionMs)
-        } else {
-            MediaSession.MediaItemsWithStartPosition(plan.items, plan.startIndex, plan.startPositionMs)
-        }
+        plan.toItemsWithStartPosition()
     }
+
+    /**
+     * The headset or Bluetooth play button while the process is dead, and the
+     * system's "recently played" resume card. The service has been started with
+     * an empty player and asks what it should be playing: where you left off.
+     */
+    override fun onPlaybackResumption(
+        mediaSession: MediaSession,
+        controller: MediaSession.ControllerInfo,
+    ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> = scope.future {
+        coordinator()?.planResume().toItemsWithStartPosition()
+    }
+
+    /**
+     * No plan means nothing playable: the archive is finished, or the requested
+     * episode has no audio. Handing the caller's bare ids back to the session
+     * would put items without a URI into the player, which crashes it; an empty
+     * list leaves it idle, which is what "nothing to play" should look like.
+     */
+    private fun QueuePlan?.toItemsWithStartPosition(): MediaSession.MediaItemsWithStartPosition =
+        if (this == null) {
+            MediaSession.MediaItemsWithStartPosition(emptyList(), C.INDEX_UNSET, C.TIME_UNSET)
+        } else {
+            MediaSession.MediaItemsWithStartPosition(items, startIndex, startPositionMs)
+        }
 
     companion object {
         const val ROOT = "root"
+        const val RECENT = "recent"
         const val RESUME = "resume"
         const val UP_NEXT = "up_next"
         const val STARRED = "starred"

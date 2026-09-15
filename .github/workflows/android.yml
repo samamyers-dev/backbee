@@ -13,6 +13,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
+  # write: the screenshots step force-pushes its orphan branch.
   contents: write
 
 jobs:
@@ -55,6 +56,19 @@ jobs:
       # Published straight after assembling, before the tests. A failing test
       # should turn the build red, but it should not withhold an APK that
       # compiled - the artifact is how the app gets onto a phone at all.
+      # Room writes the schema JSON for the current @Database version during
+      # the build. If that differs from what is committed, an entity changed
+      # without a version bump and a Migration - which would crash every
+      # existing install at first open. Fail here instead.
+      - name: Check the Room schema is committed
+        run: |
+          if [ -n "$(git status --porcelain app/schemas)" ]; then
+            git --no-pager diff app/schemas
+            git status --porcelain app/schemas
+            echo "::error::app/schemas changed during the build. Bump the Room version, add a Migration, and commit the new schema JSON."
+            exit 1
+          fi
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
@@ -65,6 +79,24 @@ jobs:
 
       - name: App unit tests
         run: ./gradlew :app:testDebugUnitTest --console=plain --stacktrace
+
+      # The release build type is what ships: R8 shrinking, resource shrinking
+      # and lintVital all run only here. Building it on every push - unsigned,
+      # no keystore on this workflow - is what stops a keep-rule gap or a
+      # fatal lint issue from first appearing on the day of a release.
+      - name: Assemble release (unsigned) and bundle
+        run: ./gradlew :app:assembleRelease :app:bundleRelease --console=plain --stacktrace
+
+      - name: Upload release build outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: backbee-release-unsigned
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
+            app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Lint
         if: always()
@@ -109,54 +141,6 @@ jobs:
           git add -A screenshots README.md
           git commit -q -m "Screens rendered from ${GITHUB_SHA::7}" || exit 0
           git push -f origin screenshots
-
-      # A stable, sign-in-free download for the phone. Actions artifacts always
-      # require a GitHub login and arrive as a zip, which Android cannot open
-      # without a third-party file manager; a release asset is a direct tap.
-      #
-      # Only on a fully green build. The artifact above already covers "it
-      # compiled" - a release should mean the tests passed too.
-      - name: Publish debug APK to the rolling release
-        if: success()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          apk=$(ls app/build/outputs/apk/debug/*.apk | head -1)
-          cp "$apk" backbee-debug.apk
-          size=$(du -h backbee-debug.apk | cut -f1)
-          dl="https://github.com/${GITHUB_REPOSITORY}/releases/download/debug-latest/backbee-debug.apk"
-
-          # Notes are written to a file rather than a heredoc: this run block is
-          # indented by YAML, and an indented heredoc terminator is not
-          # recognised by bash.
-          {
-            printf 'Rolling debug build, replaced on every green CI run.\n\n'
-            printf '**[Download backbee-debug.apk](%s)** — %s\n\n' "$dl" "$size"
-            printf '| | |\n|---|---|\n'
-            printf '| Commit | `%s` |\n' "${GITHUB_SHA:0:7}"
-            printf '| Branch | `%s` |\n' "${GITHUB_REF_NAME}"
-            printf '| Built | %s |\n' "$(date -u '+%Y-%m-%d %H:%M UTC')"
-            printf '| App ID | `dev.backbee.debug` |\n'
-            printf '| Requires | Android 8.0+ |\n\n'
-            printf 'Tap the link on the phone. Android will ask you to allow\n'
-            printf '"Install unknown apps" for whichever browser you used, then install.\n\n'
-            printf 'Signed with the throwaway debug key and using a `.debug` application\n'
-            printf 'id, so it installs alongside anything else and cannot later be\n'
-            printf 'upgraded in place to a release build.\n'
-          } > release-notes.md
-
-          # One stable tag, updated in place, so the download URL never changes.
-          if gh release view debug-latest >/dev/null 2>&1; then
-            gh release edit debug-latest --notes-file release-notes.md
-          else
-            gh release create debug-latest \
-              --prerelease \
-              --title "backbee · latest debug build" \
-              --notes-file release-notes.md
-          fi
-
-          gh release upload debug-latest backbee-debug.apk --clobber
-          echo "Published $dl"
 
       - name: Upload test and lint reports
         if: always()

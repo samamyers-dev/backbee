@@ -1,6 +1,7 @@
 package dev.backbee.download
 
 import android.content.Context
+import android.os.StatFs
 import java.io.File
 
 /**
@@ -11,7 +12,11 @@ import java.io.File
  */
 class EpisodeFiles(context: Context) {
 
-    private val root: File = File(context.filesDir, "episodes")
+    private val filesDir: File = context.filesDir
+    private val root: File = File(filesDir, "episodes")
+
+    /** Free space on the volume the audio lives on. */
+    fun availableBytes(): Long = runCatching { StatFs(filesDir.absolutePath).availableBytes }.getOrDefault(0L)
 
     fun fileFor(showId: Long, episodeId: Long, enclosureUrl: String?): File {
         val dir = File(root, showId.toString()).apply { mkdirs() }
@@ -41,14 +46,23 @@ class EpisodeFiles(context: Context) {
      * drift apart if the app is killed between writing the file and committing
      * the row; this is the sweep that reconciles them.
      */
-    fun deleteOrphans(knownPaths: Set<String>): Int {
+    fun deleteOrphans(knownPaths: Set<String>, now: Long = System.currentTimeMillis()): Int {
         if (!root.exists()) return 0
         var removed = 0
         root.walkTopDown()
             .filter { it.isFile }
             .filter { it.absolutePath !in knownPaths }
+            // A partial body is never in the download table until it finishes,
+            // so every in-flight download looks like an orphan. Leave the recent
+            // ones alone: one still being written at 3 a.m. would otherwise be
+            // unlinked under the writer and lost.
+            .filter { !(it.name.endsWith(".part") && now - it.lastModified() < PARTIAL_GRACE_MS) }
             .forEach { if (it.delete()) removed++ }
         return removed
+    }
+
+    private companion object {
+        const val PARTIAL_GRACE_MS = 24L * 60 * 60 * 1000
     }
 
     private fun extensionOf(url: String?): String {
