@@ -1,7 +1,8 @@
 package dev.backbee.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +25,7 @@ import dev.backbee.ui.theme.Stroke
 import dev.backbee.ui.theme.backbeeColors
 
 /**
- * Show artwork. Square-cornered and bordered like everything else, with the
+ * Show artwork. Square-cornered on a contextual Carbon layer, with the
  * show's initials as the placeholder rather than a generic glyph - a shelf of
  * three-letter blocks reads faster than a shelf of identical icons.
  */
@@ -39,15 +40,14 @@ fun Artwork(
     Box(
         modifier = modifier
             .size(size)
-            .background(colors.bgInverse)
-            .border(Stroke.divider, colors.borderColor),
+            .background(colors.layer02),
         contentAlignment = Alignment.Center,
     ) {
         if (url.isNullOrBlank()) {
             Text(
                 text = initialsOf(title),
                 style = if (size > 120.dp) BackbeeType.displaySmall else BackbeeType.label,
-                color = colors.textInverse,
+                color = colors.textPrimary,
             )
         } else {
             AsyncImage(
@@ -78,21 +78,22 @@ fun EmptyState(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(Dimens.gutter),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
             text = title,
             style = BackbeeType.displaySmall,
             color = backbeeColors.textPrimary,
-            textAlign = TextAlign.Center,
+            textAlign = TextAlign.Start,
         )
         Text(
             text = body,
             style = BackbeeType.body,
             color = backbeeColors.textMuted,
-            textAlign = TextAlign.Center,
+            textAlign = TextAlign.Start,
             modifier = Modifier.padding(top = Dimens.space3),
         )
         if (action != null) {

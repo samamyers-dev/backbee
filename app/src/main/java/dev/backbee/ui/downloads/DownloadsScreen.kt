@@ -19,16 +19,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.backbee.data.db.EpisodeRow
-import dev.backbee.ui.components.BrutalOutlineButton
-import dev.backbee.ui.components.BrutalPanel
-import dev.backbee.ui.components.BrutalProgress
+import dev.backbee.ui.components.CarbonOutlineButton
+import dev.backbee.ui.components.CarbonPanel
+import dev.backbee.ui.components.CarbonProgress
 import dev.backbee.ui.components.Label
-import dev.backbee.ui.components.Mono
 import dev.backbee.ui.components.Readout
 import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
-import dev.backbee.ui.theme.Shadow
-import dev.backbee.ui.theme.Stroke
 import dev.backbee.ui.theme.backbeeColors
 
 @Composable
@@ -42,28 +39,28 @@ fun DownloadsScreen(viewModel: DownloadsViewModel, modifier: Modifier = Modifier
         verticalArrangement = Arrangement.spacedBy(Dimens.space3),
     ) {
         item {
-            BrutalPanel(Modifier.fillMaxWidth()) {
+            CarbonPanel(Modifier.fillMaxWidth()) {
                 Row(Modifier.fillMaxWidth()) {
                     Label("Storage", color = colors.textPrimary)
                     Spacer(Modifier.weight(1f))
-                    Mono(
+                    Text(
                         "${mb(state.usedBytes)} / ${gb(state.capBytes)}",
-                        style = BackbeeType.mono,
+                        style = BackbeeType.body,
                         color = if (state.capReached) colors.textAlert else colors.textPrimary,
                     )
                 }
                 Spacer(Modifier.height(Dimens.space2))
-                BrutalProgress(
+                CarbonProgress(
                     fraction = state.fractionUsed,
-                    height = 14.dp,
+                    height = 4.dp,
                     color = if (state.capReached) colors.textAlert else colors.textAccent,
                 )
                 if (state.capReached) {
                     Spacer(Modifier.height(Dimens.space2))
-                    Mono(
-                        "CAP REACHED. AHEAD-QUEUE TRIMMED. " +
-                            "RAISE THE CAP OR SHORTEN THE DELETE-PLAYED WINDOW.",
-                        style = BackbeeType.monoSmall,
+                    Text(
+                        "Cap reached. ahead-queue trimmed. " +
+                            "Raise the cap or shorten the delete-played window.",
+                        style = BackbeeType.bodySmall,
                         color = colors.textAlert,
                     )
                 }
@@ -71,17 +68,17 @@ fun DownloadsScreen(viewModel: DownloadsViewModel, modifier: Modifier = Modifier
                     Modifier.padding(top = Dimens.space3),
                     horizontalArrangement = Arrangement.spacedBy(Dimens.space2),
                 ) {
-                    BrutalOutlineButton(onClick = viewModel::raiseCap, modifier = Modifier.weight(1f)) {
-                        Mono("RAISE CAP +1GB", style = BackbeeType.monoSmall, color = colors.textPrimary)
+                    CarbonOutlineButton(onClick = viewModel::raiseCap, modifier = Modifier.weight(1f)) {
+                        Label("Raise cap +1GB", style = BackbeeType.bodySmall, color = colors.textPrimary)
                     }
-                    BrutalOutlineButton(
+                    CarbonOutlineButton(
                         onClick = viewModel::purgePlayed,
                         enabled = state.playedReclaimableBytes > 0,
                         modifier = Modifier.weight(1f),
                     ) {
-                        Mono(
-                            "PURGE PLAYED · ${mb(state.playedReclaimableBytes)}",
-                            style = BackbeeType.monoSmall,
+                        Label(
+                            "Purge played · ${mb(state.playedReclaimableBytes)}",
+                            style = BackbeeType.bodySmall,
                             color = colors.textPrimary,
                         )
                     }
@@ -94,35 +91,35 @@ fun DownloadsScreen(viewModel: DownloadsViewModel, modifier: Modifier = Modifier
                 Column {
                     Readout(
                         lines = listOf(
-                            "QUEUE STALLED · ${state.failed.size} FAILED",
-                            "POSITION WRITES: LOCAL, UNAFFECTED.",
-                            "RETRY HAPPENS AUTOMATICALLY ON RECONNECT.",
+                            "Queue stalled · ${state.failed.size} failed",
+                            "Position writes: local, unaffected.",
+                            "Retry happens automatically on reconnect.",
                         ),
                         tone = colors.onInverseAlert,
                     )
-                    BrutalOutlineButton(
+                    CarbonOutlineButton(
                         onClick = viewModel::retryFailed,
                         modifier = Modifier.padding(top = Dimens.space2),
                     ) {
-                        Mono("RETRY NOW", style = BackbeeType.monoSmall, color = colors.textPrimary)
+                        Label("Retry now", style = BackbeeType.bodySmall, color = colors.textPrimary)
                     }
                 }
             }
-            items(state.failed, key = { "f${it.id}" }) { row -> DownloadRow(row, "FAILED", colors.textAlert) }
+            items(state.failed, key = { "f${it.id}" }) { row -> DownloadRow(row, "Failed", colors.textAlert) }
         }
 
         if (state.inProgress.isNotEmpty()) {
             item { Label("In progress") }
             items(state.inProgress, key = { "p${it.id}" }) { row ->
-                BrutalPanel(Modifier.fillMaxWidth(), shadow = Shadow.sm, borderWidth = Stroke.thin) {
+                CarbonPanel(Modifier.fillMaxWidth()) {
                     Text(row.title, style = BackbeeType.bodySmall, color = colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(6.dp))
                     val total = row.bytesTotal ?: 0
                     val done = row.bytesDone ?: 0
-                    BrutalProgress(if (total > 0) done.toFloat() / total else 0f)
-                    Mono(
+                    CarbonProgress(if (total > 0) done.toFloat() / total else 0f)
+                    Text(
                         "${mb(done)} / ${mb(total)}",
-                        style = BackbeeType.monoMicro,
+                        style = BackbeeType.labelSmall,
                         color = colors.textMuted,
                         modifier = Modifier.padding(top = 4.dp),
                     )
@@ -132,14 +129,14 @@ fun DownloadsScreen(viewModel: DownloadsViewModel, modifier: Modifier = Modifier
 
         if (state.queued.isNotEmpty()) {
             item { Label("Waiting") }
-            items(state.queued, key = { "q${it.id}" }) { row -> DownloadRow(row, "WAITING", colors.textMuted) }
+            items(state.queued, key = { "q${it.id}" }) { row -> DownloadRow(row, "Waiting", colors.textMuted) }
         }
 
         item { Label("On device · ${state.onDevice.size}") }
         items(state.onDevice, key = { "d${it.id}" }) { row ->
             DownloadRow(
                 row = row,
-                status = if (row.isKept) "KEPT" else mb(row.bytesDone ?: 0),
+                status = if (row.isKept) "Kept" else mb(row.bytesDone ?: 0),
                 color = if (row.isKept) colors.textAccent else colors.textFunctional,
             )
         }
@@ -153,9 +150,9 @@ private fun DownloadRow(row: EpisodeRow, status: String, color: androidx.compose
         Modifier.fillMaxWidth().padding(vertical = 6.dp),
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
     ) {
-        Mono(
+        Text(
             (row.episodeNumber ?: (row.orderIndex + 1)).toString(),
-            style = BackbeeType.monoSmall,
+            style = BackbeeType.bodySmall,
             color = colors.textMuted,
             modifier = Modifier.padding(end = Dimens.space3),
         )
@@ -167,7 +164,7 @@ private fun DownloadRow(row: EpisodeRow, status: String, color: androidx.compose
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        Mono(status, style = BackbeeType.monoSmall, color = color)
+        Text(status, style = BackbeeType.bodySmall, color = color)
     }
 }
 

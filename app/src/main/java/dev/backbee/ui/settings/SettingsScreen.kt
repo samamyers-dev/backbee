@@ -11,14 +11,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.Switch
+import dev.backbee.ui.components.CarbonToggle
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -32,15 +35,12 @@ import dev.backbee.core.playback.ArchiveProgress
 import dev.backbee.core.playback.RelativeTime
 import dev.backbee.core.playback.ResumeTier
 import dev.backbee.core.playback.SmartResume
-import dev.backbee.ui.components.BrutalOutlineButton
-import dev.backbee.ui.components.BrutalPanel
+import dev.backbee.ui.components.CarbonOutlineButton
+import dev.backbee.ui.components.CarbonPanel
 import dev.backbee.ui.components.Label
-import dev.backbee.ui.components.Mono
 import dev.backbee.ui.components.Readout
 import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
-import dev.backbee.ui.theme.Shadow
-import dev.backbee.ui.theme.Stroke
 import dev.backbee.ui.theme.backbeeColors
 
 @Composable
@@ -79,7 +79,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
     ) {
         state.activeShow?.let { show ->
             item {
-                BrutalPanel(Modifier.fillMaxWidth()) {
+                CarbonPanel(Modifier.fillMaxWidth()) {
                     Label("Per show — ${show.title}")
                     Spacer(Modifier.height(Dimens.space2))
                     Stepper("Playback speed", "${ArchiveProgress.formatSpeed(show.speed)}×",
@@ -93,7 +93,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
         }
 
         item {
-            BrutalPanel(Modifier.fillMaxWidth()) {
+            CarbonPanel(Modifier.fillMaxWidth()) {
                 Label("Downloads")
                 Spacer(Modifier.height(Dimens.space2))
                 Stepper("Keep ahead", "${state.settings.downloadAhead} eps",
@@ -105,13 +105,13 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
                 Stepper("Delete played after", "${state.settings.deletePlayedAfterHours}h",
                     { viewModel.setDeletePlayedAfterHours(state.settings.deletePlayedAfterHours - 6) },
                     { viewModel.setDeletePlayedAfterHours(state.settings.deletePlayedAfterHours + 6) })
-                SwitchRow("Wi-Fi only", "DOWNLOADS WAIT FOR AN UNMETERED CONNECTION",
+                SwitchRow("Wi-Fi only", "Downloads wait for an unmetered connection",
                     state.settings.wifiOnlyDownloads, viewModel::setWifiOnly)
             }
         }
 
         item {
-            BrutalPanel(Modifier.fillMaxWidth()) {
+            CarbonPanel(Modifier.fillMaxWidth()) {
                 Label("Playback & routing")
                 Spacer(Modifier.height(Dimens.space2))
                 Stepper("Skip forward", "${state.settings.skipForwardSeconds}s",
@@ -122,7 +122,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
                     { viewModel.setSkipBackSeconds(state.settings.skipBackSeconds + 5) })
                 SwitchRow(
                     "Auto-play on Bluetooth",
-                    "OFF BY DEFAULT: CONNECTING LEAVES THE APP READY, NOT TALKING",
+                    "Off by default: connecting leaves the app ready, not talking",
                     state.settings.autoPlayOnBluetooth,
                     viewModel::setAutoPlayOnBluetooth,
                 )
@@ -130,11 +130,11 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
         }
 
         item {
-            BrutalPanel(Modifier.fillMaxWidth()) {
+            CarbonPanel(Modifier.fillMaxWidth()) {
                 Label("Rewind on resume")
-                Mono(
-                    "HOW FAR BACK TO JUMP, SCALED BY HOW LONG YOU WERE AWAY.",
-                    style = BackbeeType.monoMicro,
+                Text(
+                    "How far back to jump, scaled by how long you were away.",
+                    style = BackbeeType.labelSmall,
                     color = colors.textMuted,
                     modifier = Modifier.padding(vertical = Dimens.space2),
                 )
@@ -145,7 +145,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .background(colors.bgPanel)
+                                .background(colors.field)
+                                .defaultMinSize(minHeight = 48.dp)
                                 .clickable {
                                     viewModel.setResumeTiers(
                                         state.settings.resumeTiers.bump(index, +5)
@@ -154,34 +155,33 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
                                 .padding(vertical = Dimens.space2),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Mono("${tier.rewindSeconds}s", style = BackbeeType.mono, color = colors.textAccent)
-                            Mono(tierLabel(tier.pauseAtMostSeconds), style = BackbeeType.monoMicro, color = colors.textMuted)
+                            Text("${tier.rewindSeconds}s", style = BackbeeType.body, color = colors.textAccentOnField)
+                            Text(tierLabel(tier.pauseAtMostSeconds), style = BackbeeType.labelSmall, color = colors.textMuted)
                         }
                     }
                 }
-                BrutalOutlineButton(
+                CarbonOutlineButton(
                     onClick = { viewModel.setResumeTiers(SmartResume.DEFAULT_TIERS) },
-                    shadow = Shadow.sm,
                     modifier = Modifier.padding(top = Dimens.space2),
                 ) {
-                    Mono("RESET TO DEFAULTS", style = BackbeeType.monoSmall, color = colors.textPrimary)
+                    Label("Reset to defaults", style = BackbeeType.bodySmall, color = colors.textPrimary)
                 }
             }
         }
 
         item {
-            BrutalPanel(Modifier.fillMaxWidth()) {
+            CarbonPanel(Modifier.fillMaxWidth()) {
                 Label("Backup")
-                Mono(
-                    "EVERY NIGHT A COPY OF YOUR PLACE IN EVERY ARCHIVE GOES TO A FOLDER YOU " +
-                        "CHOOSE. PICK ONE THAT SYNCS OFF THE PHONE AND LOSING IT COSTS AT MOST A DAY.",
-                    style = BackbeeType.monoMicro,
+                Text(
+                    "Every night a copy of your place in every archive goes to a folder you " +
+                        "Choose. pick one that syncs off the phone and losing it costs at most a day.",
+                    style = BackbeeType.labelSmall,
                     color = colors.textMuted,
                     modifier = Modifier.padding(vertical = Dimens.space2),
                 )
                 SwitchRow(
                     "Nightly backup",
-                    if (state.settings.backupFolderUri != null) "FOLDER SELECTED" else "NO FOLDER CHOSEN YET",
+                    if (state.settings.backupFolderUri != null) "Folder selected" else "No folder chosen yet",
                     state.settings.backupEnabled,
                     viewModel::setBackupEnabled,
                 )
@@ -189,35 +189,35 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
                     Modifier.padding(top = Dimens.space2),
                     horizontalArrangement = Arrangement.spacedBy(Dimens.space2),
                 ) {
-                    BrutalOutlineButton(onClick = { pickFolder.launch(null) }, modifier = Modifier.weight(1f)) {
-                        Mono("CHOOSE FOLDER", style = BackbeeType.monoSmall, color = colors.textPrimary)
+                    CarbonOutlineButton(onClick = { pickFolder.launch(null) }, modifier = Modifier.weight(1f)) {
+                        Label("Choose folder", style = BackbeeType.bodySmall, color = colors.textPrimary)
                     }
-                    BrutalOutlineButton(
+                    CarbonOutlineButton(
                         onClick = viewModel::backupNow,
                         enabled = state.settings.backupFolderUri != null,
                         modifier = Modifier.weight(1f),
                     ) {
-                        Mono("BACK UP NOW", style = BackbeeType.monoSmall, color = colors.textPrimary)
+                        Label("Back up now", style = BackbeeType.bodySmall, color = colors.textPrimary)
                     }
                 }
 
                 // The way back after a lost or replaced phone. The file is read
                 // and checked first; nothing changes until the numbers below
                 // have been looked at and confirmed.
-                BrutalOutlineButton(
+                CarbonOutlineButton(
                     onClick = { pickBackup.launch(arrayOf("*/*")) },
                     enabled = !restore.inspecting && !restore.restoring,
                     modifier = Modifier.fillMaxWidth().padding(top = Dimens.space2),
                 ) {
-                    Mono(
-                        if (restore.inspecting) "READING BACKUP…" else "RESTORE FROM A BACKUP FILE",
-                        style = BackbeeType.monoSmall,
+                    Label(
+                        if (restore.inspecting) "Reading backup…" else "Restore from a backup file",
+                        style = BackbeeType.bodySmall,
                         color = colors.textPrimary,
                     )
                 }
                 restore.error?.let { error ->
                     Readout(
-                        lines = listOf("RESTORE: ${error.uppercase()}"),
+                        lines = listOf("Restore: ${error}"),
                         tone = colors.onInverseAlert,
                         modifier = Modifier.padding(top = Dimens.space2),
                     )
@@ -225,10 +225,10 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
                 restore.preview?.let { preview ->
                     Readout(
                         lines = listOf(
-                            "FILE: ${preview.name.uppercase()}",
-                            "${preview.shows} SHOW(S) · ${preview.playedEpisodes} EPISODES PLAYED · ${preview.sizeBytes / 1024} KB",
-                            "THIS REPLACES EVERY POSITION ON THIS PHONE.",
-                            "THE APP RESTARTS WHEN IT IS DONE.",
+                            "File: ${preview.name}",
+                            "${preview.shows} show(s) · ${preview.playedEpisodes} episodes played · ${preview.sizeBytes / 1024} KB",
+                            "This replaces every position on this phone.",
+                            "The app restarts when it is done.",
                         ),
                         tone = colors.onInverseAlert,
                         modifier = Modifier.padding(top = Dimens.space2),
@@ -237,21 +237,22 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
                         Modifier.padding(top = Dimens.space2),
                         horizontalArrangement = Arrangement.spacedBy(Dimens.space2),
                     ) {
-                        BrutalOutlineButton(
+                        CarbonOutlineButton(
                             onClick = viewModel::cancelRestore,
                             enabled = !restore.restoring,
                             modifier = Modifier.weight(1f),
                         ) {
-                            Mono("KEEP WHAT I HAVE", style = BackbeeType.monoSmall, color = colors.textPrimary)
+                            Label("Keep what i have", style = BackbeeType.bodySmall, color = colors.textPrimary)
                         }
-                        BrutalOutlineButton(
+                        CarbonOutlineButton(
                             onClick = viewModel::confirmRestore,
                             enabled = !restore.restoring,
+                            contentColor = colors.textAlert,
                             modifier = Modifier.weight(1f),
                         ) {
-                            Mono(
-                                if (restore.restoring) "RESTORING…" else "RESTORE AND RESTART",
-                                style = BackbeeType.monoSmall,
+                            Label(
+                                if (restore.restoring) "Restoring…" else "Restore and restart",
+                                style = BackbeeType.bodySmall,
                                 color = colors.textAlert,
                             )
                         }
@@ -267,50 +268,49 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
             Readout(
                 lines = listOfNotNull(
                     diag.lastCheckpointAtMillis?.let {
-                        "LAST BACKUP: ${RelativeTime.since(it, System.currentTimeMillis())} // " +
-                            (diag.lastCheckpointResult ?: "UNKNOWN")
-                    } ?: "LAST BACKUP: NEVER RUN",
+                        "Last backup: ${RelativeTime.since(it, System.currentTimeMillis())} // " +
+                            (diag.lastCheckpointResult ?: "Unknown")
+                    } ?: "Last backup: never run",
                     diag.lastFeedRefreshAtMillis?.let {
-                        "FEED REFRESH: ${RelativeTime.since(it, System.currentTimeMillis())}"
-                    } ?: "FEED REFRESH: NOT YET",
-                    "POSITION FLUSHES TODAY: ${diag.positionFlushesToday}",
+                        "Feed refresh: ${RelativeTime.since(it, System.currentTimeMillis())}"
+                    } ?: "Feed refresh: not yet",
+                    "Position flushes today: ${diag.positionFlushesToday}",
                 ),
             )
         }
 
         item {
-            BrutalOutlineButton(
+            CarbonOutlineButton(
                 onClick = viewModel::refreshFeedsNow,
-                shadow = Shadow.sm,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Mono("CHECK FEEDS NOW", style = BackbeeType.monoSmall, color = colors.textPrimary)
+                Label("Check feeds now", style = BackbeeType.bodySmall, color = colors.textPrimary)
             }
         }
 
         item {
-            BrutalPanel(Modifier.fillMaxWidth()) {
+            CarbonPanel(Modifier.fillMaxWidth()) {
                 Label("About")
-                Mono(
-                    "BACKBEE ${BuildConfig.VERSION_NAME.uppercase()} · BUILD ${BuildConfig.VERSION_CODE}",
-                    style = BackbeeType.monoSmall,
+                Text(
+                    "Backbee ${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}",
+                    style = BackbeeType.bodySmall,
                     color = colors.textPrimary,
                     modifier = Modifier.padding(top = Dimens.space2),
                 )
-                Mono(
-                    "NO ACCOUNTS. NO ANALYTICS. NOTHING ABOUT WHAT YOU LISTEN TO LEAVES THIS PHONE.",
-                    style = BackbeeType.monoMicro,
+                Text(
+                    "No accounts. no analytics. nothing about what you listen to leaves this phone.",
+                    style = BackbeeType.labelSmall,
                     color = colors.textMuted,
                     modifier = Modifier.padding(vertical = Dimens.space2),
                 )
-                BrutalOutlineButton(
+                CarbonOutlineButton(
                     onClick = {
                         runCatching {
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(BuildConfig.PRIVACY_POLICY_URL)))
                         }
                     },
                 ) {
-                    Mono("PRIVACY POLICY", style = BackbeeType.monoSmall, color = colors.textPrimary)
+                    Label("Privacy policy", style = BackbeeType.bodySmall, color = colors.textPrimary)
                 }
             }
         }
@@ -323,10 +323,10 @@ private fun List<ResumeTier>.bump(index: Int, delta: Int): List<ResumeTier> = ma
 }
 
 private fun tierLabel(bound: Long): String = when {
-    bound == Long.MAX_VALUE -> "LONGER"
-    bound < 3600 -> "<${bound / 60}MIN"
-    bound < 86_400 -> "<${bound / 3600}HR"
-    else -> "<${bound / 86_400}DAY"
+    bound == Long.MAX_VALUE -> "Longer"
+    bound < 3600 -> "<${bound / 60}min"
+    bound < 86_400 -> "<${bound / 3600}hr"
+    else -> "<${bound / 86_400}day"
 }
 
 @Composable
@@ -336,29 +336,23 @@ private fun Stepper(label: String, value: String, onDown: () -> Unit, onUp: () -
         Modifier.fillMaxWidth().padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Mono(label.uppercase(), style = BackbeeType.monoSmall, color = colors.textPrimary, modifier = Modifier.weight(1f))
-        StepKey("−", onDown)
-        Mono(value, style = BackbeeType.mono, color = colors.textAccent,
+        Text(label, style = BackbeeType.bodySmall, color = colors.textPrimary, modifier = Modifier.weight(1f))
+        StepKey("−", "Decrease $label", onDown)
+        Text(value, style = BackbeeType.body, color = colors.textAccent,
             modifier = Modifier.padding(horizontal = Dimens.space3))
-        StepKey("+", onUp)
+        StepKey("+", "Increase $label", onUp)
     }
 }
 
 @Composable
-private fun StepKey(symbol: String, onClick: () -> Unit) {
-    val colors = backbeeColors
-    // A full thumb-sized target. The glyph is small; the key is not.
-    Mono(
-        text = symbol,
-        style = BackbeeType.mono,
-        color = colors.textPrimary,
-        modifier = Modifier
-            .background(colors.bgInverse.copy(alpha = 0.12f))
-            .clickable(onClick = onClick)
-            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-            .wrapContentSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    )
+private fun StepKey(symbol: String, actionLabel: String, onClick: () -> Unit) {
+    CarbonOutlineButton(
+        onClick = onClick,
+        modifier = Modifier.width(48.dp)
+            .semantics(mergeDescendants = true) { contentDescription = actionLabel },
+    ) {
+        Label(symbol, style = BackbeeType.body)
+    }
 }
 
 @Composable
@@ -375,9 +369,9 @@ private fun SwitchRow(label: String, description: String, checked: Boolean, onCh
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Mono(label.uppercase(), style = BackbeeType.monoSmall, color = colors.textPrimary)
-            Mono(description, style = BackbeeType.monoMicro, color = colors.textMuted)
+            Text(label, style = BackbeeType.bodySmall, color = colors.textPrimary)
+            Text(description, style = BackbeeType.labelSmall, color = colors.textMuted)
         }
-        Switch(checked = checked, onCheckedChange = null)
+        CarbonToggle(checked = checked, onCheckedChange = null)
     }
 }

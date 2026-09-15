@@ -12,10 +12,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
+import dev.backbee.ui.components.CarbonDialog
+import dev.backbee.ui.components.CarbonTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,17 +26,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.backbee.ui.components.Artwork
-import dev.backbee.ui.components.BrutalButton
-import dev.backbee.ui.components.BrutalOutlineButton
-import dev.backbee.ui.components.BrutalPanel
+import dev.backbee.ui.components.CarbonButton
+import dev.backbee.ui.components.CarbonOutlineButton
+import dev.backbee.ui.components.CarbonPanel
 import dev.backbee.ui.components.Label
-import dev.backbee.ui.components.Mono
 import dev.backbee.ui.components.Readout
 import dev.backbee.ui.components.StatusChip
 import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
-import dev.backbee.ui.theme.Shadow
-import dev.backbee.ui.theme.Stroke
 import dev.backbee.ui.theme.backbeeColors
 
 /**
@@ -63,54 +59,54 @@ fun ShelfScreen(
         item {
             Row(Modifier.fillMaxWidth()) {
                 Label(
-                    "[Shelf] ${entries.size} ${if (entries.size == 1) "show" else "shows"}",
+                    "Shelf · ${entries.size} ${if (entries.size == 1) "show" else "shows"}",
                     color = colors.textPrimary,
                 )
                 Spacer(Modifier.weight(1f))
-                Mono(
-                    "${entries.count { it.show.isActive }} ACTIVE",
-                    style = BackbeeType.monoSmall,
+                Text(
+                    "${entries.count { it.show.isActive }} active",
+                    style = BackbeeType.bodySmall,
                     color = colors.textAccent,
                 )
             }
         }
 
         item {
-            BrutalPanel(Modifier.fillMaxWidth()) {
+            CarbonPanel(Modifier.fillMaxWidth()) {
                 Label("Add a show")
-                OutlinedTextField(
+                CarbonTextField(
                     value = addState.query,
                     onValueChange = viewModel::setQuery,
-                    placeholder = { Mono("RSS URL OR SEARCH TERM", style = BackbeeType.monoSmall, color = colors.textMuted) },
+                    label = { Label("Feed URL or search term", style = BackbeeType.labelSmall) },
+                    accessibleLabel = "Feed URL or search term",
                     singleLine = true,
-                    textStyle = BackbeeType.mono,
                     modifier = Modifier.fillMaxWidth().padding(top = Dimens.space2),
                 )
                 Row(
                     Modifier.padding(top = Dimens.space2),
                     horizontalArrangement = Arrangement.spacedBy(Dimens.space2),
                 ) {
-                    BrutalButton(
+                    CarbonButton(
                         onClick = { viewModel.addByUrl(addState.query) },
                         enabled = !addState.adding && addState.query.isNotBlank(),
-                        shadow = Shadow.sm,
+
                         minHeight = 48.dp,
                         modifier = Modifier.weight(1f),
                     ) {
-                        Mono(
-                            if (addState.adding) "FETCHING…" else "FETCH FEED",
-                            style = BackbeeType.monoSmall,
+                        Label(
+                            if (addState.adding) "Fetching…" else "Fetch feed",
+                            style = BackbeeType.bodySmall,
                             color = colors.onAccentPrimary,
                         )
                     }
-                    BrutalOutlineButton(
+                    CarbonOutlineButton(
                         onClick = viewModel::search,
                         enabled = !addState.searching && addState.query.isNotBlank(),
                         modifier = Modifier.weight(1f),
                     ) {
-                        Mono(
-                            if (addState.searching) "SEARCHING…" else "SEARCH INDEX",
-                            style = BackbeeType.monoSmall,
+                        Label(
+                            if (addState.searching) "Searching…" else "Search index",
+                            style = BackbeeType.bodySmall,
                             color = colors.textPrimary,
                         )
                     }
@@ -129,8 +125,8 @@ fun ShelfScreen(
                         lines = addState.probeLines,
                         tone = if (addState.probeUsable) colors.onInverseFunctional else colors.onInverseAlert,
                     )
-                    TextButton(onClick = viewModel::dismissMessage) {
-                        Mono("DISMISS", style = BackbeeType.monoSmall, color = colors.textMuted)
+                    CarbonOutlineButton(onClick = viewModel::dismissMessage) {
+                        Label("Dismiss", style = BackbeeType.bodySmall, color = colors.textMuted)
                     }
                 }
             }
@@ -139,7 +135,7 @@ fun ShelfScreen(
         if (addState.results.isNotEmpty()) {
             item { Label("Search results") }
             items(addState.results, key = { it.feedUrl }) { result ->
-                BrutalPanel(Modifier.fillMaxWidth(), shadow = Shadow.sm, borderWidth = Stroke.thin) {
+                CarbonPanel(Modifier.fillMaxWidth()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Artwork(result.artworkUrl, result.title)
                         Column(Modifier.weight(1f).padding(horizontal = Dimens.space3)) {
@@ -150,20 +146,20 @@ fun ShelfScreen(
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
-                            Mono(
-                                listOfNotNull(result.author, result.episodeCount?.let { "$it EPISODES" })
-                                    .joinToString(" · ").uppercase(),
-                                style = BackbeeType.monoMicro,
+                            Text(
+                                listOfNotNull(result.author, result.episodeCount?.let { "$it episodes" })
+                                    .joinToString(" · "),
+                                style = BackbeeType.labelSmall,
                                 color = colors.textMuted,
                             )
                         }
-                        BrutalButton(
+                        CarbonButton(
                             onClick = { viewModel.addByUrl(result.feedUrl) },
-                            shadow = Shadow.sm,
-                            minHeight = 40.dp,
+
+                            minHeight = 48.dp,
                             modifier = Modifier.width(84.dp),
                         ) {
-                            Mono("ADD", style = BackbeeType.monoSmall, color = colors.onAccentPrimary)
+                            Label("Add", style = BackbeeType.bodySmall, color = colors.onAccentPrimary)
                         }
                     }
                 }
@@ -173,9 +169,8 @@ fun ShelfScreen(
         if (entries.isNotEmpty()) {
             item { Label("Shows") }
             items(entries, key = { it.show.id }) { entry ->
-                BrutalPanel(
+                CarbonPanel(
                     Modifier.fillMaxWidth(),
-                    borderWidth = if (entry.show.isActive) Stroke.thick else Stroke.divider,
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Artwork(entry.show.artworkUrl, entry.show.title)
@@ -201,9 +196,9 @@ fun ShelfScreen(
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.padding(top = 4.dp),
                             )
-                            Mono(
+                            Text(
                                 entry.placeLine(),
-                                style = BackbeeType.monoSmall,
+                                style = BackbeeType.bodySmall,
                                 color = colors.textMuted,
                             )
                         }
@@ -215,29 +210,31 @@ fun ShelfScreen(
                     ) {
                         if (!entry.show.isActive) {
                             // The only promotion action there is.
-                            BrutalButton(
+                            CarbonButton(
                                 onClick = { viewModel.makeActive(entry.show.id) },
-                                shadow = Shadow.sm,
-                                minHeight = 44.dp,
+
+                                minHeight = 48.dp,
                                 modifier = Modifier.weight(1f),
                             ) {
-                                Mono("ACTIVATE", style = BackbeeType.monoSmall, color = colors.onAccentPrimary)
+                                Label("Activate", style = BackbeeType.bodySmall, color = colors.onAccentPrimary)
                             }
                         }
                         if (entry.isComplete) {
-                            BrutalOutlineButton(
+                            CarbonOutlineButton(
                                 onClick = { onOpenCompletion(entry.show.id) },
-                                minHeight = 44.dp,
+                                minHeight = 48.dp,
                                 modifier = Modifier.weight(1f),
                             ) {
-                                Mono("RECAP", style = BackbeeType.monoSmall, color = colors.textPrimary)
+                                Label("Recap", style = BackbeeType.bodySmall, color = colors.textPrimary)
                             }
                         }
-                        BrutalOutlineButton(
+                        CarbonOutlineButton(
                             onClick = { pendingRemoval = entry.show.id },
-                            minHeight = 44.dp,
+                            minHeight = 48.dp,
+                            modifier = Modifier.weight(1f),
+                            contentColor = colors.textAlert,
                         ) {
-                            Mono("REMOVE", style = BackbeeType.monoSmall, color = colors.textAlert)
+                            Label("Remove", style = BackbeeType.bodySmall, color = colors.textAlert)
                         }
                     }
                 }
@@ -246,7 +243,7 @@ fun ShelfScreen(
     }
 
     pendingRemoval?.let { showId ->
-        AlertDialog(
+        CarbonDialog(
             onDismissRequest = { pendingRemoval = null },
             title = { Label("Remove this show?", color = colors.textPrimary) },
             text = {
@@ -257,13 +254,17 @@ fun ShelfScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.removeShow(showId); pendingRemoval = null }) {
-                    Mono("REMOVE", style = BackbeeType.monoSmall, color = colors.textAlert)
+                CarbonButton(
+                    onClick = { viewModel.removeShow(showId); pendingRemoval = null },
+                    background = colors.accentAlert,
+                    contentColor = colors.textOnColor,
+                ) {
+                    Label("Remove", style = BackbeeType.bodySmall, color = colors.textAlert)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingRemoval = null }) {
-                    Mono("KEEP", style = BackbeeType.monoSmall, color = colors.textPrimary)
+                CarbonOutlineButton(onClick = { pendingRemoval = null }) {
+                    Label("Keep", style = BackbeeType.bodySmall, color = colors.textPrimary)
                 }
             },
         )

@@ -9,15 +9,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.OutlinedTextField
+import dev.backbee.ui.components.CarbonTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,23 +28,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.backbee.playback.PlayerConnection
-import dev.backbee.ui.components.BrutalDivider
-import dev.backbee.ui.components.BrutalOutlineButton
+import dev.backbee.ui.components.CarbonDivider
+import dev.backbee.ui.components.CarbonOutlineButton
 import dev.backbee.ui.components.EmptyState
 import dev.backbee.ui.components.EpisodeRowItem
 import dev.backbee.ui.components.Glyph
 import dev.backbee.ui.components.Label
-import dev.backbee.ui.components.Mono
 import dev.backbee.ui.components.Readout
 import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
-import dev.backbee.ui.theme.Stroke
 import dev.backbee.ui.theme.backbeeColors
 import kotlinx.coroutines.launch
 
@@ -66,7 +63,6 @@ fun ArchiveScreen(
     val playerState by player.state.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    val keyboard = LocalSoftwareKeyboardController.current
 
     var jumpText by remember { mutableStateOf("") }
     var landed by remember { mutableStateOf(false) }
@@ -86,21 +82,21 @@ fun ArchiveScreen(
     Column(modifier.fillMaxSize().background(colors.bgPage)) {
         Column(Modifier.padding(horizontal = Dimens.gutter, vertical = Dimens.space3)) {
             Label(state.show?.title ?: "Archive", color = colors.textPrimary)
-            Mono("OLDEST FIRST", style = BackbeeType.monoMicro, color = colors.textMuted)
+            Text("Oldest first", style = BackbeeType.labelSmall, color = colors.textMuted)
 
             Row(
                 Modifier.fillMaxWidth().padding(top = Dimens.space3),
                 horizontalArrangement = Arrangement.spacedBy(Dimens.space2),
             ) {
-                OutlinedTextField(
+                CarbonTextField(
                     value = state.query,
                     onValueChange = viewModel::setQuery,
-                    placeholder = { Mono("SEARCH TITLES…", style = BackbeeType.monoSmall, color = colors.textMuted) },
+                    label = { Label("Search titles", style = BackbeeType.labelSmall) },
+                    accessibleLabel = "Search titles",
                     singleLine = true,
-                    textStyle = BackbeeType.mono,
                     modifier = Modifier.weight(1f),
                 )
-                OutlinedTextField(
+                CarbonTextField(
                     value = jumpText,
                     // Jumps as you type, like the search field beside it. Hiding
                     // the jump behind the keyboard's Go key made the box look
@@ -111,12 +107,11 @@ fun ArchiveScreen(
                             ?.let(viewModel::indexForEpisodeNumber)
                             ?.let { scope.launch { listState.scrollToItem(it) } }
                     },
-                    placeholder = { Mono("EP #", style = BackbeeType.monoSmall, color = colors.textMuted) },
+                    label = { Label("Episode", style = BackbeeType.labelSmall) },
+                    accessibleLabel = "Episode",
                     singleLine = true,
-                    textStyle = BackbeeType.mono,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Go),
-                    // Go now only puts the keyboard away; the jump already happened.
-                    keyboardActions = KeyboardActions(onGo = { keyboard?.hide() }),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                    // Native Done dismisses the keyboard; the jump already happened.
                     modifier = Modifier.width(104.dp),
                 )
             }
@@ -124,22 +119,22 @@ fun ArchiveScreen(
             if (state.searching) {
                 Readout(
                     lines = listOf(
-                        "QUERY: \"${state.query}\"",
-                        "SCOPE: ACTIVE SHOW ONLY",
-                        "${state.rows.size} HITS // ${state.totalEpisodes} INDEXED",
+                        "Query: \"${state.query}\"",
+                        "Scope: active show only",
+                        "${state.rows.size} hits // ${state.totalEpisodes} indexed",
                     ),
                     modifier = Modifier.padding(top = Dimens.space3),
                 )
             }
         }
 
-        BrutalDivider(thickness = Stroke.divider)
+        CarbonDivider()
 
         if (state.rows.isEmpty()) {
             EmptyState(
                 title = if (state.searching) "No matches" else "No episodes yet",
                 body = if (state.searching) "Nothing in this archive matches \"${state.query}\"."
-                else "The feed has not been read yet. Settings → CHECK FEEDS NOW fills the archive.",
+                else "The feed has not been read yet. Settings → Check feeds now fills the archive.",
             )
             return@Column
         }
@@ -150,13 +145,13 @@ fun ArchiveScreen(
                     // Sticky-ish year band: emitted before the first row of each
                     // year so a decade of scrolling always says where it is.
                     state.yearBandFor(row.id)?.let { band ->
-                        Mono(
+                        Text(
                             text = band,
                             style = BackbeeType.labelSmall,
-                            color = colors.textInverse,
+                            color = colors.textSecondary,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(colors.bgInverse)
+                                .background(colors.layer02)
                                 .padding(horizontal = Dimens.gutter, vertical = 6.dp),
                         )
                     }
@@ -166,16 +161,16 @@ fun ArchiveScreen(
                         isPlaying = playerState.episodeId == row.id,
                         highlight = state.query.takeIf { state.searching },
                     )
-                    BrutalDivider()
+                    CarbonDivider()
                 }
                 item {
                     Row(
                         Modifier.fillMaxWidth().padding(Dimens.gutter),
                         horizontalArrangement = Arrangement.spacedBy(Dimens.space4),
                     ) {
-                        Mono("${Glyph.PLAYED} PLAYED ${state.playedCount}", style = BackbeeType.monoMicro, color = colors.textMuted)
-                        Mono("${Glyph.DOWNLOADED} ON DEVICE ${state.downloadedCount}", style = BackbeeType.monoMicro, color = colors.textMuted)
-                        Mono("${Glyph.STARRED} STARRED ${state.starredCount}", style = BackbeeType.monoMicro, color = colors.textMuted)
+                        Text("${Glyph.PLAYED} played ${state.playedCount}", style = BackbeeType.labelSmall, color = colors.textMuted)
+                        Text("${Glyph.DOWNLOADED} on device ${state.downloadedCount}", style = BackbeeType.labelSmall, color = colors.textMuted)
+                        Text("${Glyph.STARRED} starred ${state.starredCount}", style = BackbeeType.labelSmall, color = colors.textMuted)
                     }
                 }
             }
@@ -183,7 +178,7 @@ fun ArchiveScreen(
             if (state.years.size > 1 && !state.searching) {
                 Column(
                     modifier = Modifier
-                        .width(44.dp)
+                        .width(48.dp)
                         .fillMaxSize()
                         .background(colors.bgPanel)
                         .verticalScroll(rememberScrollState()),
@@ -194,12 +189,13 @@ fun ArchiveScreen(
                             Modifier
                                 .fillMaxWidth()
                                 .clickable { scope.launch { listState.scrollToItem(marker.listIndex) } }
-                                .padding(vertical = 9.dp),
+                                .heightIn(min = 48.dp)
+                                .padding(vertical = 8.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Mono(
+                            Text(
                                 "'" + marker.year.toString().takeLast(2),
-                                style = BackbeeType.monoMicro,
+                                style = BackbeeType.labelSmall,
                                 color = colors.textMuted,
                             )
                         }
@@ -209,7 +205,7 @@ fun ArchiveScreen(
         }
 
         state.resumeIndex?.let { index ->
-            BrutalOutlineButton(
+            CarbonOutlineButton(
                 onClick = { scope.launch { listState.animateScrollToItem(index) } },
                 modifier = Modifier.fillMaxWidth().padding(Dimens.space3),
             ) {

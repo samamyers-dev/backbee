@@ -48,14 +48,15 @@ fun EpisodeRowItem(
     /** When set, occurrences are highlighted in the title - used by search. */
     highlight: String? = null,
 ) {
-    val colors = backbeeColors
+    val palette = backbeeColors
+    val colors = if (isPlaying) palette.copy(textAccent = palette.textAccentSelected) else palette
     val dim = row.isPlayed && !isPlaying
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .then(if (isPlaying) Modifier.background(colors.accentPrimary.copy(alpha = 0.14f)) else Modifier)
+            .then(if (isPlaying) Modifier.background(colors.layerSelected) else Modifier)
             .defaultMinSize(minHeight = Dimens.rowMinHeight)
             .padding(horizontal = Dimens.gutter, vertical = Dimens.space3),
         verticalAlignment = Alignment.CenterVertically,
@@ -132,8 +133,8 @@ private fun Modifier.spoken(label: String): Modifier = clearAndSetSemantics { co
 /** `14 MAR 2021 · 26:41 / 1H 18M` - date, then position within duration. */
 private fun metaLine(row: EpisodeRow): String {
     val parts = mutableListOf<String>()
-    if (row.isKept) parts += "KEPT"
-    row.pubDate?.let { parts += DATE.format(Date(it)).uppercase() }
+    if (row.isKept) parts += "Kept"
+    row.pubDate?.let { parts += DATE.format(Date(it)) }
 
     val duration = row.durationSeconds
     val position = row.positionSeconds ?: 0
@@ -159,7 +160,7 @@ private fun highlightedTitle(title: String, needle: String?, accent: androidx.co
                 break
             }
             append(title.substring(index, hit))
-            withStyle(SpanStyle(color = accent, fontWeight = FontWeight.Black)) {
+            withStyle(SpanStyle(color = accent, fontWeight = FontWeight.SemiBold)) {
                 append(title.substring(hit, hit + query.length))
             }
             index = hit + query.length

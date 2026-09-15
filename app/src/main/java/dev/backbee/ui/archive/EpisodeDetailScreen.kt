@@ -9,12 +9,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
+import dev.backbee.ui.components.CarbonTextField
+import dev.backbee.ui.components.CarbonToggle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,17 +33,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.backbee.core.playback.ArchiveProgress
 import dev.backbee.core.playback.PlaybackSpeeds
 import dev.backbee.playback.PlayerConnection
-import dev.backbee.ui.components.BrutalButton
-import dev.backbee.ui.components.BrutalDivider
-import dev.backbee.ui.components.BrutalOutlineButton
+import dev.backbee.ui.components.CarbonButton
+import dev.backbee.ui.components.CarbonDivider
+import dev.backbee.ui.components.CarbonOutlineButton
 import dev.backbee.ui.components.Glyph
 import dev.backbee.ui.components.Label
-import dev.backbee.ui.components.Mono
 import dev.backbee.ui.components.Readout
 import dev.backbee.ui.components.ScanBar
 import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
-import dev.backbee.ui.theme.Shadow
 import dev.backbee.ui.theme.backbeeColors
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -85,18 +84,19 @@ fun EpisodeDetailScreen(
             .padding(Dimens.gutter),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Mono(
-                text = "← ARCHIVE",
-                style = BackbeeType.monoSmall,
+            Text(
+                text = "← Archive",
+                style = BackbeeType.bodySmall,
                 color = colors.textMuted,
                 // The hit area is the padding, not the glyphs: eight characters
                 // of 12sp mono is nowhere near a thumb.
                 modifier = Modifier
                     .clickable(onClick = onBack)
+                    .heightIn(min = 48.dp)
                     .padding(end = Dimens.space3, top = Dimens.space3, bottom = Dimens.space3),
             )
             Spacer(Modifier.weight(1f))
-            Mono("[EP ${row.episodeNumber ?: (row.orderIndex + 1)}]", style = BackbeeType.monoSmall, color = colors.textMuted)
+            Text("[Ep ${row.episodeNumber ?: (row.orderIndex + 1)}]", style = BackbeeType.bodySmall, color = colors.textMuted)
         }
 
         Spacer(Modifier.height(Dimens.space4))
@@ -108,15 +108,15 @@ fun EpisodeDetailScreen(
         )
         Text(text = row.title, style = BackbeeType.title, color = colors.textPrimary)
 
-        Mono(
+        Text(
             text = listOfNotNull(
-                row.pubDate?.let { DATE.format(Date(it)).uppercase() },
+                row.pubDate?.let { DATE.format(Date(it)) },
                 row.durationSeconds?.let { ArchiveProgress.formatDuration(it) },
                 row.bytesDone?.takeIf { it > 0 }?.let { "${it / (1024 * 1024)} MB" },
-                if (row.isDownloaded) "ON DEVICE" else null,
-                if (row.isPlayed) "PLAYED" else row.progressFraction?.let { "${(it * 100).toInt()}% IN" },
+                if (row.isDownloaded) "On device" else null,
+                if (row.isPlayed) "Played" else row.progressFraction?.let { "${(it * 100).toInt()}% in" },
             ).joinToString("  ·  "),
-            style = BackbeeType.monoSmall,
+            style = BackbeeType.bodySmall,
             color = colors.textMuted,
             modifier = Modifier.padding(top = Dimens.space3),
         )
@@ -129,9 +129,9 @@ fun EpisodeDetailScreen(
         if (row.enclosureUrl == null) {
             // The feed entry has no audio file. A Play button here would do
             // nothing, and doing nothing looks like a broken app.
-            Readout(lines = listOf("NO AUDIO IN THIS FEED ENTRY", "NOTHING TO PLAY OR DOWNLOAD"))
+            Readout(lines = listOf("No audio in this feed entry", "Nothing to play or download"))
         } else {
-            BrutalButton(
+            CarbonButton(
                 onClick = { if (loadedHere) player.togglePlayPause() else player.playEpisode(row.id) },
             ) {
                 Label(
@@ -161,13 +161,13 @@ fun EpisodeDetailScreen(
 
             Spacer(Modifier.height(Dimens.space3))
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.space2)) {
-                BrutalOutlineButton(onClick = player::skipBack, modifier = Modifier.weight(1f)) {
-                    Mono("−${skipSeconds.first}s", style = BackbeeType.mono, color = colors.textPrimary)
+                CarbonOutlineButton(onClick = player::skipBack, modifier = Modifier.weight(1f)) {
+                    Label("−${skipSeconds.first}s", style = BackbeeType.body, color = colors.textPrimary)
                 }
-                BrutalOutlineButton(onClick = player::skipForward, modifier = Modifier.weight(1f)) {
-                    Mono("+${skipSeconds.second}s", style = BackbeeType.mono, color = colors.textPrimary)
+                CarbonOutlineButton(onClick = player::skipForward, modifier = Modifier.weight(1f)) {
+                    Label("+${skipSeconds.second}s", style = BackbeeType.body, color = colors.textPrimary)
                 }
-                BrutalOutlineButton(
+                CarbonOutlineButton(
                     onClick = {
                         val next = PlaybackSpeeds.next(playerState.speed)
                         player.setSpeed(next)
@@ -175,9 +175,9 @@ fun EpisodeDetailScreen(
                     },
                     modifier = Modifier.weight(1f),
                 ) {
-                    Mono(
+                    Label(
                         "${ArchiveProgress.formatSpeed(playerState.speed)}×",
-                        style = BackbeeType.mono,
+                        style = BackbeeType.body,
                         color = colors.textPrimary,
                     )
                 }
@@ -187,35 +187,35 @@ fun EpisodeDetailScreen(
             // and moves on, instead of scrubbing to the end or digging through
             // the archive for the next one.
             Spacer(Modifier.height(Dimens.space2))
-            BrutalOutlineButton(onClick = { viewModel.markPlayedAndAdvance { player.next() } }) {
-                Mono("✓ MARK PLAYED · NEXT →", style = BackbeeType.monoSmall, color = colors.textPrimary)
+            CarbonOutlineButton(onClick = { viewModel.markPlayedAndAdvance { player.next() } }) {
+                Label("✓ Mark played · next →", style = BackbeeType.bodySmall, color = colors.textPrimary)
             }
         }
 
         Spacer(Modifier.height(Dimens.space3))
 
         Row(horizontalArrangement = Arrangement.spacedBy(Dimens.space2)) {
-            BrutalOutlineButton(onClick = viewModel::toggleStar, modifier = Modifier.weight(1f)) {
-                Mono(
-                    if (row.isStarred) "${Glyph.STARRED} STARRED" else "${Glyph.STARRED} STAR",
-                    style = BackbeeType.monoSmall,
+            CarbonOutlineButton(onClick = viewModel::toggleStar, modifier = Modifier.weight(1f)) {
+                Label(
+                    if (row.isStarred) "${Glyph.STARRED} starred" else "${Glyph.STARRED} star",
+                    style = BackbeeType.bodySmall,
                     color = if (row.isStarred) colors.textAccent else colors.textPrimary,
                 )
             }
-            BrutalOutlineButton(
+            CarbonOutlineButton(
                 onClick = { viewModel.setPlayed(!row.isPlayed) },
                 modifier = Modifier.weight(1f),
             ) {
-                Mono(
-                    if (row.isPlayed) "MARK UNPLAYED" else "MARK PLAYED",
-                    style = BackbeeType.monoSmall,
+                Label(
+                    if (row.isPlayed) "Mark unplayed" else "Mark played",
+                    style = BackbeeType.bodySmall,
                     color = colors.textPrimary,
                 )
             }
         }
 
         Spacer(Modifier.height(Dimens.space5))
-        BrutalDivider()
+        CarbonDivider()
         Spacer(Modifier.height(Dimens.space4))
 
         // Keep-after-playing: the exemption from the automatic cleanup that
@@ -234,28 +234,28 @@ fun EpisodeDetailScreen(
         ) {
             Column(Modifier.weight(1f)) {
                 Label("Keep after playing", color = colors.textPrimary)
-                Mono(
-                    "EXEMPT FROM THE AUTOMATIC CLEANUP",
-                    style = BackbeeType.monoMicro,
+                Text(
+                    "Exempt from the automatic cleanup",
+                    style = BackbeeType.labelSmall,
                     color = colors.textMuted,
                 )
             }
-            Switch(checked = row.isKept, onCheckedChange = null)
+            CarbonToggle(checked = row.isKept, onCheckedChange = null)
         }
 
         Spacer(Modifier.height(Dimens.space3))
 
         if (row.isDownloaded) {
-            BrutalOutlineButton(onClick = viewModel::removeDownload, shadow = Shadow.sm) {
-                Mono(
-                    "DELETE DOWNLOAD" + (row.bytesDone?.takeIf { it > 0 }?.let { "  ·  ${it / (1024 * 1024)} MB →" } ?: ""),
-                    style = BackbeeType.monoSmall,
+            CarbonOutlineButton(onClick = viewModel::removeDownload, contentColor = colors.textAlert) {
+                Label(
+                    "Delete download" + (row.bytesDone?.takeIf { it > 0 }?.let { "  ·  ${it / (1024 * 1024)} MB →" } ?: ""),
+                    style = BackbeeType.bodySmall,
                     color = colors.textAlert,
                 )
             }
         } else {
-            BrutalOutlineButton(onClick = viewModel::downloadNow, shadow = Shadow.sm) {
-                Mono("DOWNLOAD NOW", style = BackbeeType.monoSmall, color = colors.textPrimary)
+            CarbonOutlineButton(onClick = viewModel::downloadNow) {
+                Label("Download now", style = BackbeeType.bodySmall, color = colors.textPrimary)
             }
         }
 
@@ -264,7 +264,7 @@ fun EpisodeDetailScreen(
         // is asked far more often than "mark three hundred episodes played".
         state.description?.let { description ->
             Spacer(Modifier.height(Dimens.space5))
-            BrutalDivider()
+            CarbonDivider()
             Spacer(Modifier.height(Dimens.space4))
             Label("Description")
             Text(
@@ -276,7 +276,7 @@ fun EpisodeDetailScreen(
         }
 
         Spacer(Modifier.height(Dimens.space5))
-        BrutalDivider()
+        CarbonDivider()
         Spacer(Modifier.height(Dimens.space4))
 
         Column(Modifier.onGloballyPositioned { bulkTop = it.positionInParent().y }) {
@@ -290,24 +290,23 @@ fun EpisodeDetailScreen(
         }
 
         Spacer(Modifier.height(Dimens.space5))
-        BrutalDivider()
+        CarbonDivider()
         Spacer(Modifier.height(Dimens.space4))
 
         Label("Note")
-        OutlinedTextField(
+        CarbonTextField(
             value = state.noteDraft,
             onValueChange = viewModel::setNoteDraft,
-            placeholder = { Mono("SOMETHING WORTH REMEMBERING", style = BackbeeType.monoSmall, color = colors.textMuted) },
-            textStyle = BackbeeType.body,
+            label = { Label("Something worth remembering", style = BackbeeType.labelSmall) },
+            accessibleLabel = "Something worth remembering",
             minLines = 3,
             modifier = Modifier.fillMaxWidth().padding(top = Dimens.space2),
         )
-        BrutalOutlineButton(
+        CarbonOutlineButton(
             onClick = viewModel::saveNote,
-            shadow = Shadow.sm,
             modifier = Modifier.padding(top = Dimens.space2),
         ) {
-            Mono("SAVE NOTE", style = BackbeeType.monoSmall, color = colors.textPrimary)
+            Label("Save note", style = BackbeeType.bodySmall, color = colors.textPrimary)
         }
 
         Spacer(Modifier.height(Dimens.space16))
@@ -337,26 +336,27 @@ private fun BulkSection(
     bulk.done?.let { done ->
         Readout(
             lines = listOf(
-                "${done.count} EPISODES MARKED ${if (done.played) "PLAYED" else "UNPLAYED"}",
-                "UNDO RESTORES THEM EXACTLY, POSITIONS AND ALL",
+                "${done.count} episodes marked ${if (done.played) "Played" else "Unplayed"}",
+                "Undo restores them exactly, positions and all",
             ),
             tone = colors.onInverseFunctional,
         )
         Spacer(Modifier.height(Dimens.space2))
         Row(horizontalArrangement = Arrangement.spacedBy(Dimens.space2)) {
-            BrutalOutlineButton(
+            CarbonOutlineButton(
                 onClick = onUndo,
                 enabled = !bulk.working,
+                contentColor = colors.textAlert,
                 modifier = Modifier.weight(1f),
             ) {
-                Mono("UNDO", style = BackbeeType.monoSmall, color = colors.textAlert)
+                Label("Undo", style = BackbeeType.bodySmall, color = colors.textAlert)
             }
-            BrutalOutlineButton(
+            CarbonOutlineButton(
                 onClick = onDismiss,
                 enabled = !bulk.working,
                 modifier = Modifier.weight(1f),
             ) {
-                Mono("KEEP", style = BackbeeType.monoSmall, color = colors.textPrimary)
+                Label("Keep", style = BackbeeType.bodySmall, color = colors.textPrimary)
             }
         }
         return
@@ -366,64 +366,64 @@ private fun BulkSection(
     Spacer(Modifier.height(Dimens.space2))
 
     Row(horizontalArrangement = Arrangement.spacedBy(Dimens.space2)) {
-        BrutalOutlineButton(
+        CarbonOutlineButton(
             onClick = { onOpen(BulkScope.BEFORE) },
             modifier = Modifier.weight(1f),
         ) {
-            Mono("← ALL BEFORE", style = BackbeeType.monoSmall, color = colors.textPrimary)
+            Label("← All before", style = BackbeeType.bodySmall, color = colors.textPrimary)
         }
-        BrutalOutlineButton(
+        CarbonOutlineButton(
             onClick = { onOpen(BulkScope.AFTER) },
             modifier = Modifier.weight(1f),
         ) {
-            Mono("ALL AFTER →", style = BackbeeType.monoSmall, color = colors.textPrimary)
+            Label("All after →", style = BackbeeType.bodySmall, color = colors.textPrimary)
         }
     }
 
     val scope = bulk.scope ?: return
     val summary = bulk.summary ?: return
-    val side = if (scope == BulkScope.BEFORE) "BEFORE" else "AFTER"
+    val side = if (scope == BulkScope.BEFORE) "Before" else "After"
 
     Spacer(Modifier.height(Dimens.space3))
 
     if (summary.isEmpty) {
-        Readout(listOf("NOTHING $side THIS EPISODE"))
+        Readout(listOf("Nothing $side this episode"))
         Spacer(Modifier.height(Dimens.space2))
-        BrutalOutlineButton(onClick = onDismiss) {
-            Mono("CLOSE", style = BackbeeType.monoSmall, color = colors.textPrimary)
+        CarbonOutlineButton(onClick = onDismiss) {
+            Label("Close", style = BackbeeType.bodySmall, color = colors.textPrimary)
         }
         return
     }
 
     Readout(
         lines = listOf(
-            "${summary.total} EPISODES $side THIS ONE",
-            "${summary.played} PLAYED · ${summary.unplayed} UNPLAYED",
-            "THIS EPISODE IS NOT INCLUDED",
+            "${summary.total} episodes $side this one",
+            "${summary.played} played · ${summary.unplayed} unplayed",
+            "This episode is not included",
         ),
     )
     Spacer(Modifier.height(Dimens.space2))
     Row(horizontalArrangement = Arrangement.spacedBy(Dimens.space2)) {
-        BrutalButton(
+        CarbonButton(
             onClick = { onApply(true) },
             enabled = !bulk.working && summary.unplayed > 0,
             modifier = Modifier.weight(1f),
         ) {
             // "THEM", not "MARK PLAYED": the single-episode button of that exact
             // name is still on screen a few hundred pixels up.
-            Mono("MARK THEM PLAYED", style = BackbeeType.monoSmall, color = colors.onAccentPrimary)
+            Label("Mark them played", style = BackbeeType.bodySmall, color = colors.onAccentPrimary)
         }
-        BrutalOutlineButton(
+        CarbonOutlineButton(
             onClick = { onApply(false) },
             enabled = !bulk.working && summary.played > 0,
             modifier = Modifier.weight(1f),
         ) {
-            Mono("MARK THEM UNPLAYED", style = BackbeeType.monoSmall, color = colors.textPrimary)
+            Label("Mark them unplayed", style = BackbeeType.bodySmall, color = colors.textPrimary)
         }
     }
     Spacer(Modifier.height(Dimens.space2))
-    BrutalOutlineButton(onClick = onDismiss, enabled = !bulk.working) {
-        Mono("CANCEL", style = BackbeeType.monoSmall, color = colors.textMuted)
+    CarbonOutlineButton(onClick = onDismiss, enabled = !bulk.working) {
+        Label("Cancel", style = BackbeeType.bodySmall, color = colors.textMuted)
     }
 }
 

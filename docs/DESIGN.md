@@ -1,228 +1,123 @@
-# Design system — "FREE THEM."
+# Backbee — Carbon for native Android
 
-Extracted from `Podcast-bee v2 · Screens` (SPEC-02 // HI-FI). This is the
-reference the Compose theme implements; when the two disagree, this document is
-wrong and should be corrected from the source.
+Backbee implements an **IBM Carbon Design System adaptation in Jetpack Compose**.
+It is not a WebView and does not claim to be an official IBM Android component
+package. Compose Foundation supplies native input/accessibility; Material 3 is
+an implementation detail with Carbon colors, shapes and all type slots mapped.
+Playback, feeds, persistence, downloads and backup behavior are not redesigned.
 
-## Palette
+## Sources
 
-Raw values. Components use the semantic aliases below, never these directly.
+- [Carbon color tokens](https://carbondesignsystem.com/elements/color/tokens/)
+- [Carbon themes](https://carbondesignsystem.com/elements/themes/overview/)
+- [Carbon typography](https://carbondesignsystem.com/elements/typography/type-sets/)
+- [Carbon buttons](https://carbondesignsystem.com/components/button/style/)
+- [IBM Plex](https://github.com/IBM/plex), bundled under the SIL Open Font License
+  (see `docs/licenses/IBM-Plex-OFL.txt`). Fonts require no runtime connection.
 
-| Token | Hex | Name |
-|-------|-----|------|
-| `paper` | `#F2EDE4` | Sandstone Paper — light canvas |
-| `basalt` | `#181614` | Basalt Charcoal — dark canvas |
-| `espresso` | `#2E2824` | Espresso Ink — light text/border/shadow |
-| `ochre` | `#C99653` | Muted Ochre — primary accent |
-| `terracotta` | `#AD563E` | Terracotta Clay — secondary accent |
-| `sage` | `#5D7B66` | Sage Green — functional / success |
-| `slate` | `#3E5066` | Slate Indigo — informational |
-| `crimson` | `#8C382A` | Oxide Crimson — alert / danger |
+## Visual foundation
 
-### Semantic aliases
+| Role | Light (Gray 10) | Dark (Gray 100) |
+|---|---|---|
+| Background | `#f4f4f4` | `#161616` |
+| Layer 01 / tile | `#ffffff` | `#262626` |
+| Layer 02 | `#f4f4f4` | `#393939` |
+| Text primary | `#161616` | `#f4f4f4` |
+| Text secondary | `#525252` | `#c6c6c6` |
+| Border subtle | `#e0e0e0` | `#393939` |
+| Border strong | `#8d8d8d` | `#6f6f6f` |
+| Primary button | `#0f62fe` / white | `#0f62fe` / white |
+| Link / interactive text | `#0f62fe` | `#78a9ff` |
+| Error text | `#da1e28` | `#ff8389` |
+| Success text | `#0e6027` | `#42be65` |
+| Focus | `#0f62fe` | white |
 
-| Alias | Light | Dark |
-|-------|-------|------|
-| `bgPage`, `bgPanel` | paper | basalt |
-| `bgInverse` | espresso | paper |
-| `textPrimary` | espresso | paper |
-| `textInverse` | paper | basalt |
-| `textMuted` | espresso @ 70% | paper @ 70% |
-| `borderColor` | espresso | paper |
-| `shadowColor` | espresso | paper |
-| `ditherLine` | `rgba(46,40,36,.05)` | `rgba(242,237,228,.02)` |
+Use semantic tokens from `ui/theme/Theme.kt`, not raw hex in screen code.
+Filled actions use `accentPrimary` with `onAccentPrimary`; links use `textAccent`.
+Support text colors are different from filled support colors. Inverse diagnostic
+panels use explicit inverse text tokens rather than assuming one color works on
+both themes.
 
-Accents do not change between modes. `onAccentPrimary` is espresso in both;
-`onAccentSecondary` and `onAccentAlert` are paper in both.
+### A little of the old identity
 
-## Form
+The former ochre `#c99653` remains as **`brandAccent`**: a small diagnostic rule,
+playback visualization, and brand details. Plex Mono remains for timestamps,
+episode indexes and technical diagnostics. The archive-spine metaphor remains.
+Ochre does not replace blue interaction feedback, danger colors or normal body
+text. Hard offset shadows, page grids, heavy outlines, black-weight headings,
+and forced uppercase are retired.
 
-The look is print/brutalist, and three properties carry nearly all of it:
+### Typography and spacing
 
-- **`--radius: 0px`.** Nothing is rounded. Not buttons, not cards, not artwork.
-- **Hard offset shadows**, no blur: `3px 3px 0`, `6px 6px 0`, `9px 9px 0` in
-  `shadowColor`. These read as printed registration offsets, not elevation.
-- **Visible borders**: 1px thin, 2px divider, 3px heavy, 4px thick.
+IBM Plex Sans is bundled in regular, light and semibold; IBM Plex Mono in regular.
+Productive body text is 14/20sp, expressive body text 16/24sp, labels 12/16sp or
+14/18sp, component headings 16/24sp semibold, page headings 24/32sp regular,
+and larger numerals use light 42/50sp or 54/64sp. Labels are sentence case.
 
-A dither pattern (`--pattern-dither`, 24px grid of `ditherLine`) sits behind
-panels, and a CRT scanline overlay is available for the terminal readouts.
+Spacing follows Carbon's 4/8/12/16/24/32/40/48/64 scale. The standard page gutter
+is 16dp. Android controls retain **at least 48dp touch targets** even where
+Carbon's desktop component would be smaller. Text uses sp and layouts expand
+vertically. Corners are square except Carbon's pill tags and toggle anatomy.
 
-## Type
+## Component contract
 
-- **Display**: Impact / Arial Narrow Bold / Arial Black. Used for the big
-  numerals and screen titles.
-- **Mono**: JetBrains Mono / IBM Plex Mono. Used for every `> READOUT` line,
-  timestamps, episode numbers, and status chips.
+`ui/components/Carbon.kt` is the shared visual layer:
 
-Scale: `micro 0.625rem`, `xs 0.6875rem`, `sm 0.8125rem`, `base 0.875rem`,
-`lg 1rem`, `display-sm 2rem`, `display-md 2.75rem`, `display-lg 3.5rem`.
+- `CarbonPanel`: a flat tile; borders are opt-in, never shadows.
+- `CarbonButton`: blue primary action, left-aligned label, separate pressed,
+  hover, focus and disabled states, button semantics.
+- `CarbonOutlineButton`: interactive outlined tertiary action.
+- `CarbonTextField`: persistent label, filled rectangular field, bottom rule,
+  full focus outline, native editable text and keyboard options.
+- `CarbonToggle`: 48dp target with 48×24dp track and an explicit switch role.
+  Pass a null callback only when its parent owns the accessible toggle action.
+- `CarbonDialog`: square modal, scrollable content and action footer.
+- `CarbonProgress`: thin track with clamped accessible progress semantics.
+- `CarbonDivider`: subtle 1dp separator.
+- `StatusChip`: compact Carbon-style tag; state also has a textual label.
+- `Readout`: restrained inverse diagnostic panel, without terminal prompt glyphs.
 
-Weights 400/500/700/800. Leading: tight 1, normal 1.5, relaxed 1.7.
-Tracking: tight `-0.02em`, normal 0, wide `0.05em`, widest `0.15em` — the
-widest is what gives the small caps labels (`NEXT UP`, `ON DEVICE`) their look.
+`ScanBar` keeps the intentional seek-on-release behavior but uses a thin neutral
+track and circular thumb. Accessibility set-progress and arrow-key actions are
+provided alongside touch. The persistent player uses flat transport controls.
+Artwork remains square; archive rows use layered selection rather than tinted
+brutalist boxes.
 
-Spacing scale: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64.
+## Surface inventory
 
-Motion: `fast 120ms`, `standard 300ms`, `cubic-bezier(0.4, 0, 0.2, 1)`.
+The migration covers Now, Archive/search/year navigation, episode detail/notes/
+bulk actions, Shelf/add-show/remove confirmation, Downloads, Settings and
+backup controls, completion recap, persistent playback, primary navigation,
+empty states, and the Glance home-screen widget. Android Auto and system media
+notifications remain host-rendered: Android owns their layout and typography,
+so imposing an app-specific component system there would violate platform UI.
 
-## Screens in the spec
+## Verification
 
-### 01 · Now — three directions
+Source-contract tests (no Android SDK required):
 
-- **1A Spine** *(recommended default)* — artwork plus a horizontal
-  "book-spine" progress rail marked with years, `EP 247/512`, percent read and
-  hours left, giant RESUME, `−10s / +30s / 1.6×`, then a Next-up list with
-  per-row download state.
-- **1B Ledger** — no artwork; the episode numeral is the hero, with elapsed and
-  remaining clocks side by side.
-- **1C Instrument** — inverted panel, terminal readout header
-  (`> POS RESTORED …`), car-legible at arm's length.
-
-### 02 · Archive
-
-- Oldest-first list, sticky year band (`2021 · EPISODES 231–286`), per-row
-  state: `✓` played, `●` in-progress with percent, `▼` on device, `★` starred,
-  `○` untouched. A `PLAYING` chip marks the current row.
-- Year rail `'18 … '26` down the edge.
-- Footer counters: `✓ PLAYED 246 · ▼ ON DEVICE 10 · ★ STARRED 31`.
-- **Episode detail**: size and on-device state, PLAY FROM 00:00, star, full
-  description, free-text note, MARK PLAYED / UNPLAYED, **KEEP AFTER PLAYING**
-  toggle, DELETE DOWNLOAD with reclaimable size.
-- **Search**: match count against total (`4 MATCHES IN 512 EPISODES`), matched
-  substring highlighted in each title, jump-to-episode-number field, and a
-  readout footer (`> QUERY … > 4 HITS // 512 INDEXED`).
-
-### 03 · Shelf, add, settings
-
-- **Shelf**: active show badged `READING`, others `BOOKMARKED — FROZEN` with
-  `PAUSED AT EP 89 / 412 · 8 MONTHS AGO`, completed shows with a date and
-  episode count. `ACTIVATE` is the only promotion.
-- **Add show**: RSS URL or search, and an **ARCHIVE COMPLETENESS CHECK** panel
-  that is exactly the Phase 0 probe rendered as a terminal readout — items
-  declared, enclosures reachable, `rel=next` present or absent, Podcast Index
-  cross-check, and a verdict line. Plus MAKE ACTIVE IMMEDIATELY and START AT
-  OLDEST EPISODE toggles.
-- **Settings**: per-show speed / skip intro / skip outro; downloads keep-ahead,
-  storage cap, delete-played-after; resume rewind tiers as a segmented control;
-  and a diagnostics readout (`DB CHECKPOINT`, `SYNCTHING TARGET`,
-  `POSITION FLUSHES TODAY`).
-
-### 04 · States
-
-- **Offline / download failed** — banner, playback unaffected, stalled queue
-  with `FAILED ×3`, readout explaining no action is required.
-- **Downloading / storage cap hit** — `8.0 / 8.0 GB`, trimmed-queue
-  explanation, in-progress item with rate and ETA, `RAISE CAP` and
-  `PURGE PLAYED · 2.1 GB`.
-- **First run / empty shelf** — "The shelf is empty", paste-an-RSS-URL.
-- **Smart resume** — shows saved position, matched tier, and resulting offset
-  (`SAVED 26:41 → RESUME FROM 26:11`), with BT connected but not playing.
-- **Archive complete** — "You finished the book", hours listened, years of
-  archive, average speed, eps/week, date range, starred list, next show.
-
-### 05 · Off-app surfaces
-
-Lock screen / media notification, Android Auto (800×480), widget 4×2.
-
-### 06 · The persistent bar
-
-Not in the original screens, added after device testing. `NowPlayingBar` sits
-between the NavHost and the tab row, so it is outside every destination and
-survives all navigation. Artwork with a visualiser chip over it, episode number
-(or `BUFFERING…`), title, elapsed and remaining, `−10` and play/pause. Tapping
-the bar returns to Now.
-
-The visualiser is driven by the animation clock, not by the audio signal —
-reading real amplitude requires `RECORD_AUDIO`. It is honest about the only
-thing anyone reads it for: whether the app is playing. Its chip is a fixed dark
-lens in **both** themes rather than `bgInverse`, because the ochre accent is
-4.6:1 on espresso and 1.9:1 on paper; flipping it with the theme is the same
-trap that made the readout text unreadable.
-
-### 07 · Now follows the player, not only the bookmark
-
-Now derives from `nowPlaying ?: resumeTarget`. Playing an episode from the
-middle of the archive makes the screen follow it, and up next, the
-downloaded-ahead count and the `Ep n of N` strip follow the same episode —
-up next is a prediction of what auto-advance will do, and auto-advance
-continues from wherever the player actually is.
-
-Playing off the bookmark never happens silently: a readout states that the
-bookmark has not moved and offers one tap back to it. A completed archive
-yields to the player, so a re-listen is not replaced by the recap.
-
-### 08 · Bulk marking
-
-On the episode screen only — it is the one place with an anchor to mark
-relative to. `← ALL BEFORE` / `ALL AFTER →` count the range first and show what
-is in it (`312 EPISODES BEFORE THIS ONE · 246 PLAYED · 66 UNPLAYED`) before
-anything is written. The anchor episode itself is never included; it has its
-own MARK PLAYED button.
-
-Reversible in two senses. The inverse operation is always offered alongside
-(MARK PLAYED / MARK UNPLAYED on the same range), and the applied change keeps
-the exact prior state of every row it touched, so UNDO restores saved positions
-and `played_at` timestamps rather than merely clearing a flag. Episodes already
-in the target state are not touched at all, which is what stops an undo from
-re-opening an episode that was genuinely finished months ago.
-
-Two implementation notes worth keeping: the id lists are chunked at 400 because
-SQLite's bound-parameter ceiling is 999 and Room does not chunk `IN (:ids)`;
-and the bulk writes use `INSERT OR IGNORE` plus `UPDATE` rather than an upsert,
-to avoid widening the app's dependence on SQLite 3.24.
-
-## Gaps against the current implementation
-
-Tracked so the retheme covers them rather than only restyling:
-
-1. Bottom nav (NOW / ARCHIVE / SHELF) — currently top-bar icons.
-2. Dedicated Downloads screen with cap state, queue and purge.
-3. Per-episode **keep after playing** — new column on `marks`.
-4. Search result highlighting and match-count readout.
-5. Sticky year band in the archive, plus the footer counters.
-6. Archive-completeness readout on Add Show (data already exists in
-   `ArchiveProbe.Report`; only the rendering is missing).
-7. Offline banner and stalled-queue surfacing.
-8. Settings diagnostics readout — needs a flush counter and last-checkpoint
-   timestamp to be recorded.
-9. Relative "8 MONTHS AGO" / "PAUSED 3 DAYS AGO" formatting.
-
-Closed after device testing:
-
-10. Now followed the bookmark rather than the player (§07).
-11. `← ARCHIVE` on the episode screen had no `clickable` — `onBack` was
-    declared and never wired.
-12. No persistent playback surface across navigation (§06).
-13. The Now speed key was labelled with the speed and skipped to the next
-    episode; it cycles speed now.
-
-## Verifying the look without a device
-
-`app/src/test/java/dev/backbee/ui/screenshot/ScreenshotTest.kt` renders the
-components to PNG on the JVM using Robolectric's native graphics mode, so the
-design can be inspected without an emulator or a system image.
-
-CI publishes the results to the **`screenshots`** branch (orphan, force-pushed
-each run) rather than as a build artifact, because artifact downloads are signed
-blob URLs that some environments cannot reach, and because a branch keeps the
-images reviewable instead of expiring.
-
-```bash
-git fetch origin screenshots && git checkout origin/screenshots -- screenshots/
+```sh
+python -m unittest discover -s tests -p 'test_carbon*.py'
 ```
 
-## Known limitation: late-arriving out-of-order episodes
+Native build and tests (JDK 17 and Android API 36 SDK required):
 
-`ShowRepository.writeEpisodes` rebuilds `order_index` from publication date only
-while nothing has been played; after that, new episodes are appended. That is
-right for a still-running show, and wrong for the case where *older* episodes
-arrive later - they would land after the newest ones instead of at the start.
+```sh
+./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug
+```
 
-It is dormant today: it needs episodes to arrive out of chronological order
-after playback has begun, which in practice means recovering a truncated
-archive mid-show. Worth knowing before that path is built out.
+Compose/Robolectric tests live under `app/src/test/java/dev/backbee/ui/`.
+Roborazzi records actual Compose PNGs to `app/build/outputs/roborazzi/` in light
+and dark modes. They are review artifacts, **not pixel-diff golden baselines**.
+Source-contract tests do not replace compilation, interaction tests or visual
+inspection. See `docs/CARBON_REVIEW.md` for the actual execution results and
+remaining limitations of this migration.
 
-The fix is not difficult and is safe: `positions` is keyed by `episode_id`, not
-by `order_index`, so renumbering loses no position and no played flag. What it
-does change is the *derived* resume pointer, so a full reindex should come with
-an explicit resume pointer on the show row to avoid moving the listener.
+## Existing behavior worth preserving
+
+Now follows the loaded episode before the resume bookmark; auto-advance can
+momentarily differ from the bookmark, so detour feedback waits for confirmation.
+Bulk marking excludes its anchor and retains exact prior positions/timestamps
+for undo. The mini-player is outside the navigation host and survives tab changes.
+One show is active at a time; other bookmarks are frozen rather than promoted
+implicitly. No design-system change should alter those behaviors.
