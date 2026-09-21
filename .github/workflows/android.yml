@@ -87,12 +87,41 @@ jobs:
       - name: Assemble release (unsigned) and bundle
         run: ./gradlew :app:assembleRelease :app:bundleRelease --console=plain --stacktrace
 
+      # An installable copy of the release build. Android refuses to install an
+      # unsigned APK, so the shrunk release artifact cannot be driven on a
+      # phone as-is, and the upload key that would sign it properly lives only
+      # in the Release workflow's secrets. Signing it here with the throwaway
+      # debug key gives a build where R8, resource shrinking, the release
+      # manifest and the release application id are all exactly what ships and
+      # only the signature differs.
+      #
+      # Because the signature differs it cannot be upgraded in place to a Play
+      # build later: that install has to be removed first.
+      - name: Sign the release APK for on-device testing
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          apk=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          keystore="$HOME/.android/debug.keystore"
+          if [ ! -f "$keystore" ]; then
+            mkdir -p "$(dirname "$keystore")"
+            keytool -genkeypair -v -keystore "$keystore" \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$apksigner" sign --ks "$keystore" --ks-pass pass:android \
+            --key-pass pass:android --out dist/backbee-release-testkey.apk "$apk"
+          "$apksigner" verify --print-certs dist/backbee-release-testkey.apk
+          ls -lh dist/backbee-release-testkey.apk
+
       - name: Upload release build outputs
         uses: actions/upload-artifact@v4
         with:
-          name: backbee-release-unsigned
+          name: backbee-release-installable
           path: |
-            app/build/outputs/apk/release/*.apk
+            dist/backbee-release-testkey.apk
             app/build/outputs/bundle/release/*.aab
             app/build/outputs/mapping/release/mapping.txt
           if-no-files-found: error
