@@ -196,6 +196,15 @@ before production.
   an enclosure, so a cold Resume from the widget, Auto or a headset lands on
   it again until it is marked played by hand. Fix needs a schema change
   (mark episodes unplayable) and therefore a Room migration.
+- **Assistant's "play X on backbee" has no entry point.** The browse-side
+  search Android Auto uses is implemented (`onSearch` / `onGetSearchResult`),
+  but the manifest has no `MEDIA_PLAY_FROM_SEARCH` intent filter, so a spoken
+  request never reaches the app. Adding the filter also means handling the
+  intent in `MainActivity` and playing the best match; an empty filter would
+  launch the app and do nothing, which is worse. Lint flags this as
+  `MissingIntentFilterForMediaSearch`. Worth closing before the Android Auto
+  review, which expects voice support.
+
 - **Auto-play on Bluetooth on Android 12+.** Starting playback from an audio
   device callback is a background start with no foreground-service
   exemption. Media3 catches the exception and playback carries on

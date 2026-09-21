@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Cloud backup is not the durability story - the nightly VACUUM INTO checkpoint
-  to a Syncthing folder is. Downloaded audio is explicitly excluded so a restore
-  does not try to move tens of gigabytes.
+  Cloud backup is not the durability story - the nightly snapshot to a folder
+  of the user's choosing is, and Settings can read one back. This is the
+  no-effort safety net for a reinstall on the same account.
+
+  These are an allowlist: naming any path in a domain means nothing else in
+  that domain is backed up. Downloaded audio lives in files/episodes/, which
+  is simply not listed, so tens of gigabytes never go near a restore. An
+  <exclude> for it would be rejected as a path outside the included set.
 -->
 <full-backup-content>
     <include domain="database" path="." />
@@ -10,6 +15,4 @@
     <!-- Settings and the loaded-episode marker live in DataStore, which is a
          file, not a shared preference. -->
     <include domain="file" path="datastore/" />
-    <exclude domain="file" path="episodes/" />
-    <exclude domain="external" path="episodes/" />
 </full-backup-content>
