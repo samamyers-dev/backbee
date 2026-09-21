@@ -134,6 +134,45 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      # A stable, tappable URL for the installable build, without a public
+      # download. A draft release is visible only to people who can write to
+      # this repository, so the paid app does not end up with a free copy on
+      # its public releases page; the asset is replaced on every green build
+      # of main rather than accumulating.
+      #
+      # Drafts do not create their git tag until published, so the tag name
+      # here is a handle, not a version.
+      - name: Attach the installable build to a draft release
+        if: github.ref == 'refs/heads/main' && success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=test-build
+          notes="$RUNNER_TEMP/notes.md"
+          {
+            printf 'The release build, installable.\n\n'
+            printf 'R8 shrinking, resource shrinking, the release manifest and the\n'
+            printf '`dev.backbee` application id are all exactly what ships. Only the\n'
+            printf 'signature differs: this is signed with the throwaway debug key,\n'
+            printf 'because the upload key lives only in the Release workflow.\n\n'
+            printf '| | |\n|---|---|\n'
+            printf '| Commit | `%s` |\n' "${GITHUB_SHA:0:7}"
+            printf '| Built | %s |\n' "$(date -u '+%Y-%m-%d %H:%M UTC')"
+            printf '| Requires | Android 8.0+ |\n\n'
+            printf 'Because the signing key differs from a Play build, this install has\n'
+            printf 'to be removed before one from Play can replace it.\n'
+          } > "$notes"
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --draft --notes-file "$notes"
+          else
+            gh release create "$tag" --draft \
+              --title "backbee - latest test build" --notes-file "$notes"
+          fi
+          gh release upload "$tag" dist/backbee-release-testkey.apk --clobber
+          echo "Draft release updated: https://github.com/${GITHUB_REPOSITORY}/releases"
+
       - name: Lint
         if: always()
         run: ./gradlew :app:lintDebug --console=plain || true
