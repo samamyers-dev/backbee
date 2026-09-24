@@ -81,9 +81,13 @@ internal fun resolveCarbonButtonColors(
         hovered -> Color.Black.copy(alpha = 0.10f).compositeOver(background)
         else -> background
     }
+    // Each accent has its own ink: paper on Press Green, near-black on the
+    // lifted green, and the alert fills follow the same rule. One ink for
+    // every fill was Carbon's convention, not this palette's.
+    val activeInk = if (variant == CarbonButtonVariant.DangerOutline) colors.onAccentAlert else colors.onAccentPrimary
     return CarbonButtonStateColors(
         fill = fill,
-        ink = if (activeOutline) colors.textOnColor else contentColor,
+        ink = if (activeOutline) activeInk else contentColor,
         border = if (activeOutline) fill else colors.interactive,
     )
 }

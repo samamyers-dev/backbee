@@ -46,29 +46,36 @@ Semantic tokens:
 | Layer 02, field | field | `#2C3E2F` paper 8% over bottle |
 | Selected layer | field (the design's row hover) | `#3B4A3D` |
 | Text primary | bottle | paper |
-| Text muted | `#5C685B` bottle 70% | `#B0B0A8` paper 70% |
+| Text muted | `#5C685B` bottle 70% | `#C0C0B8` paper 80% |
 | Border subtle | `#D1D2C8` bottle 16% | `#343C35` paper 16% |
 | Border strong | bottle | `#8D9088` paper 55% |
-| Interactive text, focus | Press Green | lifted green, paper |
-| Interactive text on fields | `#0B5E38` | `#5FC98E` |
-| Success text | Press Green | lifted green |
+| Interactive text | `#0B5E38` green deep | `#45C182` green bright |
+| Interactive text on fields, selected rows | `#094A2C` | `#6ED49B` |
+| Focus | Press Green | paper |
+| Success text | `#0B5E38` | `#45C182` |
 | Warning text | `#7A5D00` amber ink | amber |
-| Error text | `#B8301E` vermilion ink | `#F26B57` vermilion lifted |
-| Primary button | Press Green / paper | lifted green / `#06170E` |
+| Error text | `#B8301E` vermilion ink | `#F78D7C` vermilion lifted twice |
+| Primary button | Press Green / paper; pressed `#0B5E38` | lifted green / `#06170E`; pressed `#45C182` |
 | Secondary, info | fluoro / `#2B0A16` | same |
-| Danger button | vermilion / paper | same |
+| Danger button | `#B8301E` / paper; pressed `#8F2416` | vermilion / `#06170E`; pressed `#F26B57` |
 | Brand accent | fluoro | fluoro |
 
-Every text token clears 4.5:1 on the ground it is drawn on. Three swatches
-did not as text and were pressed one step: amber on paper is 4.49:1 as
-`#8A6A00`, vermilion on paper 3.5:1 and on pressroom 4.49:1. As fills they
-are used unchanged with the design's own on-colours.
+Every text token clears 4.5:1 on every surface it is drawn on, including
+the recessed field layer and the selected row, and every fill clears it
+under its own ink; `CarbonContrastTest` holds that line. Where a raw swatch
+fell short as text it was pressed a step in the direction of its ground:
+Press Green is 4.3:1 on the field layer, the lifted green 3.9:1 on the
+raised dark layer, amber 4.49:1 on paper, vermilion 3.5:1 on paper and 3.7:1
+on the raised dark layer. The fills keep the swatches except light-mode
+alert, where paper on vermilion is 3.5:1 and the ink grade is used for the
+fill too.
 
 Use semantic tokens from `ui/theme/Theme.kt`, not raw hex in screen code.
 Filled actions use `accentPrimary` with `onAccentPrimary`; links use
 `textAccent`. Outline buttons fill with `accentPrimary` on hover and
 `accentPrimaryActive` on press, danger with `accentAlertHover` and
-`accentAlertActive`; all four keep `textOnColor` at 4.5:1. Inverse diagnostic
+`accentAlertActive`, each under its own ink (`onAccentPrimary`,
+`onAccentAlert`); `textOnColor` is the ink for the primary family only. Inverse diagnostic
 panels use explicit inverse text tokens rather than assuming one colour works
 on both themes.
 

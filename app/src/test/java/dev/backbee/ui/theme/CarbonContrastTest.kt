@@ -80,15 +80,22 @@ class CarbonContrastTest(private val pair: ContrastPair) {
                     "onInverseFunctional" to colors.onInverseFunctional,
                     "onInverseAlert" to colors.onInverseAlert,
                 ).forEach { (name, ink) -> add(arrayOf(ContrastPair("$mode/$name on bgInverse", ink, colors.bgInverse))) }
+                // Every fill with the ink that is actually drawn on it. The palette
+                // gives each accent its own on-colour (paper on Press Green,
+                // near-black on the lifted green, plum on fluoro), so a single ink
+                // is not a contract here; the hover and press fills are, because
+                // those are what an outline button renders under its label.
                 listOf(
                     Triple("onAccentPrimary on accentPrimary", colors.onAccentPrimary, colors.accentPrimary),
+                    Triple("onAccentPrimary on accentPrimaryActive", colors.onAccentPrimary, colors.accentPrimaryActive),
                     Triple("onAccentSecondary on accentSecondary", colors.onAccentSecondary, colors.accentSecondary),
+                    Triple("onAccentSecondary on accentInfo", colors.onAccentSecondary, colors.accentInfo),
                     Triple("onAccentAlert on accentAlert", colors.onAccentAlert, colors.accentAlert),
+                    Triple("onAccentAlert on accentAlertHover", colors.onAccentAlert, colors.accentAlertHover),
+                    Triple("onAccentAlert on accentAlertActive", colors.onAccentAlert, colors.accentAlertActive),
                     Triple("textOnColor on accentPrimary", colors.textOnColor, colors.accentPrimary),
-                    Triple("textOnColor on accentSecondary", colors.textOnColor, colors.accentSecondary),
+                    Triple("textOnColor on accentPrimaryActive", colors.textOnColor, colors.accentPrimaryActive),
                     Triple("textOnColor on accentFunctional", colors.textOnColor, colors.accentFunctional),
-                    Triple("textOnColor on accentInfo", colors.textOnColor, colors.accentInfo),
-                    Triple("textOnColor on accentAlert", colors.textOnColor, colors.accentAlert),
                 ).forEach { (name, ink, surface) -> add(arrayOf(ContrastPair("$mode/$name", ink, surface))) }
             }
         }

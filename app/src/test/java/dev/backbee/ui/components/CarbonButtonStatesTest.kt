@@ -88,11 +88,12 @@ class CarbonButtonStatesTest {
         if (pressed) button.performTouchInput { down(center) }
         else button.performMouseInput { enter(center) }
         compose.waitForIdle()
-        assertEquals("Active outline label must use the on-colour ink", colors.textOnColor, labelInk())
+        val activeInk = if (danger) colors.onAccentAlert else colors.onAccentPrimary
+        assertEquals("Active outline label must use the fill's own ink", activeInk, labelInk())
         val name = "${if (dark) "dark" else "light"}-${if (danger) "danger" else "outline"}-${if (pressed) "pressed" else "hover"}${if (suppliedInk != null) "-custom" else ""}"
         val renderedFill = renderedFill(name)
         assertEquals("Native $name fill", activeFill.toArgb(), renderedFill.toArgb())
-        val ratio = (labelInk().luminance() + 0.05f) / (renderedFill.luminance() + 0.05f)
+        val ratio = contrast(labelInk(), renderedFill)
         println("BUTTON CONTRAST $name: $ratio:1")
         assertTrue("$name contrast $ratio must be >= 4.5:1", ratio >= 4.5f)
         compose.runOnIdle { assertEquals(0, clicks) }
@@ -162,9 +163,9 @@ class CarbonButtonStatesTest {
                 val state = resolveCarbonButtonColors(colors, colors.bgPanel,
                     if (danger) colors.textAlert else colors.interactive, variant,
                     enabled = true, pressed = pressed, hovered = hovered)
-                assertEquals(CarbonButtonStateColors(fill, colors.textOnColor, fill), state)
-                assertTrue("$variant pressed=$pressed hovered=$hovered",
-                    (state.ink.luminance() + 0.05f) / (state.fill.luminance() + 0.05f) >= 4.5f)
+                val activeInk = if (danger) colors.onAccentAlert else colors.onAccentPrimary
+                assertEquals(CarbonButtonStateColors(fill, activeInk, fill), state)
+                assertTrue("$variant pressed=$pressed hovered=$hovered", contrast(state.ink, state.fill) >= 4.5f)
             }
         }
     }
@@ -182,6 +183,13 @@ class CarbonButtonStatesTest {
                         CarbonButtonVariant.Filled, enabled = true, pressed = pressed, hovered = hovered))
             }
         }
+    }
+
+    /** WCAG contrast is symmetric: the dark-mode fills carry a near-black ink. */
+    private fun contrast(a: Color, b: Color): Float {
+        val lighter = maxOf(a.luminance(), b.luminance())
+        val darker = minOf(a.luminance(), b.luminance())
+        return (lighter + 0.05f) / (darker + 0.05f)
     }
 
     private fun renderedFill(name: String): Color {

@@ -85,8 +85,13 @@ private val Pressroom = Color(0xFF101A13)
 private val Bottle = Color(0xFF1B2E1F)
 private val PressGreen = Color(0xFF0F7A4A)
 private val PressGreenDeep = Color(0xFF0B5E38)
+private val PressGreenDeeper = Color(0xFF094A2C)
 private val PressGreenLifted = Color(0xFF2FA96C)
-private val PressGreenBright = Color(0xFF5FC98E)
+private val PressGreenBright = Color(0xFF45C182)
+private val PressGreenBrighter = Color(0xFF6ED49B)
+private val VermilionInk = Color(0xFFB8301E)
+private val VermilionLifted = Color(0xFFF26B57)
+private val NearBlack = Color(0xFF06170E)
 private val Fluoro = Color(0xFFFF4B7D)
 private val Amber = Color(0xFFF2B705)
 private val Vermilion = Color(0xFFE8442E)
@@ -97,37 +102,44 @@ internal val LightColors = BackbeeColors(
     textInverse = Paper, textMuted = Color(0xFF5C685B),
     borderColor = Color(0xFFD1D2C8), borderStrong = Bottle,
     field = Field, layerSelected = Field,
-    focus = PressGreen, textAccent = PressGreen, textAccentSelected = PressGreenDeep,
-    textFunctional = PressGreen,
+    // Press Green is the fill; as text on the recessed field layer it is 4.3:1,
+    // so the text grades sit one and two steps deeper.
+    focus = PressGreen, textAccent = PressGreenDeep, textAccentSelected = PressGreenDeeper,
+    textFunctional = PressGreenDeep,
     // Amber ink, pressed one step darker than the design's #8A6A00 to clear 4.5:1 on paper.
     textSecondary = Color(0xFF7A5D00),
-    // Vermilion as text, not as a fill: the swatch itself is 3.5:1 on paper.
-    textAlert = Color(0xFFB8301E),
+    // Vermilion is 3.5:1 against paper, as text or under paper text, so on the
+    // light ground the alert colour is its ink grade in both roles.
+    textAlert = VermilionInk,
     textDisabled = Color(0xFF889084), disabled = Color(0xFFD3D4CA),
-    onInverseFunctional = PressGreenLifted, onInverseAlert = Color(0xFFF26B57),
+    onInverseFunctional = PressGreenLifted, onInverseAlert = VermilionLifted,
     accentPrimary = PressGreen, accentPrimaryActive = PressGreenDeep,
     accentSecondary = Fluoro, accentFunctional = PressGreen, accentInfo = Fluoro,
-    accentAlert = Vermilion, accentAlertHover = Color(0xFFB8301E), accentAlertActive = Color(0xFF8F2416),
+    accentAlert = VermilionInk, accentAlertHover = VermilionInk, accentAlertActive = Color(0xFF8F2416),
     onAccentPrimary = Paper, onAccentSecondary = Color(0xFF2B0A16), onAccentAlert = Paper,
     brandAccent = Fluoro, textOnColor = Paper,
 )
 internal val DarkColors = BackbeeColors(
     bgPage = Pressroom, bgPanel = Bottle, layer02 = Color(0xFF2C3E2F),
     bgInverse = Paper, textPrimary = Paper,
-    textInverse = Pressroom, textMuted = Color(0xFFB0B0A8),
+    textInverse = Pressroom, textMuted = Color(0xFFC0C0B8),
     borderColor = Color(0xFF343C35), borderStrong = Color(0xFF8D9088),
     field = Color(0xFF2C3E2F), layerSelected = Color(0xFF3B4A3D),
-    focus = Paper, textAccent = PressGreenLifted, textAccentSelected = PressGreenBright,
-    textFunctional = PressGreenLifted, textSecondary = Amber,
-    // Vermilion lifted for text on the pressroom ground; the swatch is 4.49:1 there.
-    textAlert = Color(0xFFF26B57),
+    // The lifted green is the fill; as text on the raised layer it is 3.9:1, so
+    // the text grades sit one and two steps brighter.
+    focus = Paper, textAccent = PressGreenBright, textAccentSelected = PressGreenBrighter,
+    textFunctional = PressGreenBright, textSecondary = Amber,
+    // Vermilion lifted twice for text: the swatch is 4.49:1 on pressroom and
+    // 3.7:1 on the raised layer.
+    textAlert = Color(0xFFF78D7C),
     textDisabled = Color(0xFF777B73), disabled = Color(0xFF323A33),
-    onInverseFunctional = PressGreen, onInverseAlert = Color(0xFFB8301E),
+    onInverseFunctional = PressGreenDeep, onInverseAlert = VermilionInk,
     accentPrimary = PressGreenLifted, accentPrimaryActive = PressGreenBright,
     accentSecondary = Fluoro, accentFunctional = PressGreenLifted, accentInfo = Fluoro,
-    accentAlert = Vermilion, accentAlertHover = Vermilion, accentAlertActive = Color(0xFFF26B57),
-    onAccentPrimary = Color(0xFF06170E), onAccentSecondary = Color(0xFF2B0A16), onAccentAlert = Paper,
-    brandAccent = Fluoro, textOnColor = Color(0xFF06170E),
+    accentAlert = Vermilion, accentAlertHover = Vermilion, accentAlertActive = VermilionLifted,
+    // Near-black ink on every dark-mode fill, as the design puts on its lifted green.
+    onAccentPrimary = NearBlack, onAccentSecondary = Color(0xFF2B0A16), onAccentAlert = NearBlack,
+    brandAccent = Fluoro, textOnColor = NearBlack,
 )
 val LocalBackbeeColors = staticCompositionLocalOf { DarkColors }
 
