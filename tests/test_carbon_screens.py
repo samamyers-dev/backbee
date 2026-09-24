@@ -71,14 +71,19 @@ class CarbonScreensTest(unittest.TestCase):
         import xml.etree.ElementTree as ET
         values = ROOT / "app/src/main/res/values"
         colors = {node.attrib['name']: node.text.lower() for node in ET.parse(values / 'colors.xml').getroot()}
-        for name in ("window_background", "ic_launcher_background", "widget_background"):
-            self.assertEqual(colors[name], "#161616")
-        self.assertEqual(colors["carbon_interactive"], "#0f62fe")
+        self.assertEqual(colors["window_background"], "#f4f1e8")
+        self.assertEqual(colors["ic_launcher_background"], "#101a13")
+        self.assertEqual(colors["widget_background"], "#fbf9f3")
+        self.assertEqual(colors["interactive"], "#0f7a4a")
+        night = {node.attrib['name']: node.text.lower() for node in ET.parse(values.parent / 'values-night' / 'colors.xml').getroot()}
+        self.assertEqual(night["window_background"], "#101a13")
+        self.assertEqual(night["interactive"], "#2fa96c")
         theme = (values / "themes.xml").read_text()
-        self.assertIn('name="android:colorAccent">@color/carbon_interactive', theme)
+        self.assertIn('name="android:colorAccent">@color/interactive', theme)
         self.assertIn('name="android:fontFamily">sans', theme)
         widget = source("widget/BackbeeWidget.kt")
-        self.assertIn("0xFF0F62FE", widget)
+        self.assertIn("0xFF0F7A4A", widget)
+        self.assertIn("0xFF2FA96C", widget)
         self.assertIn(".height(48.dp)", widget)
         self.assertIn(".padding(16.dp)", widget)
         self.assertIn("FontFamily.SansSerif", widget)

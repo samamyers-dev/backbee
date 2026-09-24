@@ -63,7 +63,7 @@ private fun WidgetBody(title: String, subtitle: String) {
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFF262626)))
+            .background(ColorProvider(day = Color(0xFFFBF9F3), night = Color(0xFF1B2E1F)))
             .padding(16.dp),
         verticalAlignment = Alignment.Vertical.CenterVertically,
     ) {
@@ -71,7 +71,7 @@ private fun WidgetBody(title: String, subtitle: String) {
             text = title,
             maxLines = 2,
             style = TextStyle(
-                color = ColorProvider(day = Color(0xFF161616), night = Color(0xFFF4F4F4)),
+                color = ColorProvider(day = Color(0xFF1B2E1F), night = Color(0xFFF4F1E8)),
                 fontFamily = FontFamily.SansSerif,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
@@ -79,7 +79,7 @@ private fun WidgetBody(title: String, subtitle: String) {
         )
         Text(
             text = subtitle,
-            style = TextStyle(color = ColorProvider(day = Color(0xFF525252), night = Color(0xFFC6C6C6)), fontFamily = FontFamily.SansSerif, fontSize = 12.sp),
+            style = TextStyle(color = ColorProvider(day = Color(0xFF5C685B), night = Color(0xFFB0B0A8)), fontFamily = FontFamily.SansSerif, fontSize = 12.sp),
         )
         Spacer(GlanceModifier.height(8.dp))
         Row(modifier = GlanceModifier.fillMaxWidth()) {
@@ -101,14 +101,14 @@ private fun WidgetButton(label: String, modifier: GlanceModifier = GlanceModifie
     Box(
         modifier = modifier
             .height(48.dp)
-            .background(Color(0xFF0F62FE))
+            .background(ColorProvider(day = Color(0xFF0F7A4A), night = Color(0xFF2FA96C)))
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = label,
             style = TextStyle(
-                color = androidx.glance.unit.ColorProvider(Color.White),
+                color = ColorProvider(day = Color(0xFFF4F1E8), night = Color(0xFF06170E)),
                 fontFamily = FontFamily.SansSerif,
                 fontWeight = FontWeight.Normal,
                 fontSize = 14.sp,

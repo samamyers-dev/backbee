@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- FREE THEM. palette. The Compose theme owns the real tokens; these are the
+     handful the framework needs before the first frame or outside Compose.
+     Dark values live in values-night/. -->
 <resources>
-    <color name="window_background">#161616</color>
-    <color name="ic_launcher_background">#161616</color>
-    <color name="widget_background">#161616</color>
-    <color name="carbon_interactive">#0f62fe</color>
+    <!-- Paper, so a light device does not flash dark before Compose draws. -->
+    <color name="window_background">#F4F1E8</color>
+    <!-- Pressroom, in both modes: the icon is one thing everywhere. -->
+    <color name="ic_launcher_background">#101A13</color>
+    <color name="widget_background">#FBF9F3</color>
+    <!-- Press Green. -->
+    <color name="interactive">#0F7A4A</color>
 </resources>

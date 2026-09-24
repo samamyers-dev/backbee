@@ -70,10 +70,10 @@ class CarbonButtonStatesTest {
         val colors = if (dark) DarkColors else LightColors
         val idleInk = suppliedInk ?: if (danger) colors.textAlert else colors.interactive
         val activeFill = when {
-            danger && pressed -> Color(0xFF750E13)
-            danger -> Color(0xFFDA1E28)
-            pressed -> Color(0xFF002D9C)
-            else -> Color(0xFF0F62FE)
+            danger && pressed -> colors.accentAlertActive
+            danger -> colors.accentAlertHover
+            pressed -> colors.accentPrimaryActive
+            else -> colors.accentPrimary
         }
         compose.setContent {
             BackbeeTheme(darkTheme = dark) {
@@ -88,7 +88,7 @@ class CarbonButtonStatesTest {
         if (pressed) button.performTouchInput { down(center) }
         else button.performMouseInput { enter(center) }
         compose.waitForIdle()
-        assertEquals("Active outline label must be white", Color.White, labelInk())
+        assertEquals("Active outline label must use the on-colour ink", colors.textOnColor, labelInk())
         val name = "${if (dark) "dark" else "light"}-${if (danger) "danger" else "outline"}-${if (pressed) "pressed" else "hover"}${if (suppliedInk != null) "-custom" else ""}"
         val renderedFill = renderedFill(name)
         assertEquals("Native $name fill", activeFill.toArgb(), renderedFill.toArgb())
@@ -154,15 +154,15 @@ class CarbonButtonStatesTest {
             listOf(false to true, true to false, true to true).forEach { (pressed, hovered) ->
                 val danger = variant == CarbonButtonVariant.DangerOutline
                 val fill = when {
-                    danger && pressed -> Color(0xFF750E13)
-                    danger -> Color(0xFFDA1E28)
-                    pressed -> Color(0xFF002D9C)
-                    else -> Color(0xFF0F62FE)
+                    danger && pressed -> colors.accentAlertActive
+                    danger -> colors.accentAlertHover
+                    pressed -> colors.accentPrimaryActive
+                    else -> colors.accentPrimary
                 }
                 val state = resolveCarbonButtonColors(colors, colors.bgPanel,
                     if (danger) colors.textAlert else colors.interactive, variant,
                     enabled = true, pressed = pressed, hovered = hovered)
-                assertEquals(CarbonButtonStateColors(fill, Color.White, fill), state)
+                assertEquals(CarbonButtonStateColors(fill, colors.textOnColor, fill), state)
                 assertTrue("$variant pressed=$pressed hovered=$hovered",
                     (state.ink.luminance() + 0.05f) / (state.fill.luminance() + 0.05f) >= 4.5f)
             }

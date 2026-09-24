@@ -17,35 +17,70 @@ Playback, feeds, persistence, downloads and backup behavior are not redesigned.
 
 ## Visual foundation
 
-| Role | Light (Gray 10) | Dark (Gray 100) |
+The colours are the **FREE THEM.** palette, from the "Free Them. — Home"
+refresh (24 Sep 2026), carried on the Carbon component structure below.
+Token names in `ui/theme/Theme.kt` stay Carbon's so screens did not change;
+every value is the design system's or derived from it by the mix noted.
+
+Raw swatches:
+
+| Name | Hex | Role in the design |
 |---|---|---|
-| Background | `#f4f4f4` | `#161616` |
-| Layer 01 / tile | `#ffffff` | `#262626` |
-| Layer 02 | `#f4f4f4` | `#393939` |
-| Text primary | `#161616` | `#f4f4f4` |
-| Text secondary | `#525252` | `#c6c6c6` |
-| Border subtle | `#e0e0e0` | `#393939` |
-| Border strong | `#8d8d8d` | `#6f6f6f` |
-| Primary button | `#0f62fe` / white | `#0f62fe` / white |
-| Link / interactive text | `#0f62fe` | `#78a9ff` |
-| Error text | `#da1e28` | `#ff8389` |
-| Success text | `#0e6027` | `#42be65` |
-| Focus | `#0f62fe` | white |
+| Paper | `#F4F1E8` | light canvas; text and borders on dark |
+| Pressroom | `#101A13` | dark canvas |
+| Bottle | `#1B2E1F` | ink, borders and shadows on light; panel on dark |
+| Press Green | `#0F7A4A` | primary and functional accent |
+| Press Green, lifted | `#2FA96C` | the same accent on the dark ground |
+| Fluoro Pink | `#FF4B7D` | secondary, info, and the brand pop |
+| Acid | `#D6FF3F` | highlight (unused in the app so far) |
+| Amber | `#F2B705` | warning |
+| Vermilion | `#E8442E` | alert |
+| Field | `#EAE6DB` | inputs and the recessed layer |
+
+Semantic tokens:
+
+| Token | Light | Dark |
+|---|---|---|
+| Page | paper | pressroom |
+| Panel / tile | `#FBF9F3` paper lifted toward white | bottle |
+| Layer 02, field | field | `#2C3E2F` paper 8% over bottle |
+| Selected layer | field (the design's row hover) | `#3B4A3D` |
+| Text primary | bottle | paper |
+| Text muted | `#5C685B` bottle 70% | `#B0B0A8` paper 70% |
+| Border subtle | `#D1D2C8` bottle 16% | `#343C35` paper 16% |
+| Border strong | bottle | `#8D9088` paper 55% |
+| Interactive text, focus | Press Green | lifted green, paper |
+| Interactive text on fields | `#0B5E38` | `#5FC98E` |
+| Success text | Press Green | lifted green |
+| Warning text | `#7A5D00` amber ink | amber |
+| Error text | `#B8301E` vermilion ink | `#F26B57` vermilion lifted |
+| Primary button | Press Green / paper | lifted green / `#06170E` |
+| Secondary, info | fluoro / `#2B0A16` | same |
+| Danger button | vermilion / paper | same |
+| Brand accent | fluoro | fluoro |
+
+Every text token clears 4.5:1 on the ground it is drawn on. Three swatches
+did not as text and were pressed one step: amber on paper is 4.49:1 as
+`#8A6A00`, vermilion on paper 3.5:1 and on pressroom 4.49:1. As fills they
+are used unchanged with the design's own on-colours.
 
 Use semantic tokens from `ui/theme/Theme.kt`, not raw hex in screen code.
-Filled actions use `accentPrimary` with `onAccentPrimary`; links use `textAccent`.
-Support text colors are different from filled support colors. Inverse diagnostic
-panels use explicit inverse text tokens rather than assuming one color works on
-both themes.
+Filled actions use `accentPrimary` with `onAccentPrimary`; links use
+`textAccent`. Outline buttons fill with `accentPrimary` on hover and
+`accentPrimaryActive` on press, danger with `accentAlertHover` and
+`accentAlertActive`; all four keep `textOnColor` at 4.5:1. Inverse diagnostic
+panels use explicit inverse text tokens rather than assuming one colour works
+on both themes.
 
-### A little of the old identity
+### The brand detail
 
-The former ochre `#c99653` remains as **`brandAccent`**: a small diagnostic rule,
-playback visualization, and brand details. Plex Mono remains for timestamps,
-episode indexes and technical diagnostics. The archive-spine metaphor remains.
-Ochre does not replace blue interaction feedback, danger colors or normal body
-text. Hard offset shadows, page grids, heavy outlines, black-weight headings,
-and forced uppercase are retired.
+Fluoro Pink is **`brandAccent`**: the rule down the side of a readout, the
+visualiser bars over artwork, the launcher ribbon. The design's instrument
+bars are bottle with the live bar in fluoro, which is where that comes from.
+Plex Mono remains for timestamps, episode indexes and diagnostics. The
+archive-spine metaphor remains. Hard offset shadows, page grids, heavy
+outlines, black-weight headings and forced uppercase stay retired: this is
+the palette on the Carbon structure, not the brutalist form.
 
 ### Typography and spacing
 

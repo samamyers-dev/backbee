@@ -73,10 +73,10 @@ internal fun resolveCarbonButtonColors(
     if (!enabled) return CarbonButtonStateColors(colors.disabled, colors.textDisabled, colors.disabled)
     val activeOutline = variant != CarbonButtonVariant.Filled && (pressed || hovered)
     val fill = when {
-        // Use on-color action grades, not the lighter dark-theme link/error ink.
+        // Fill grades come from the theme so each mode keeps textOnColor at 4.5:1.
         activeOutline && variant == CarbonButtonVariant.DangerOutline ->
-            if (pressed) Color(0xFF750E13) else colors.accentAlert
-        activeOutline -> if (pressed) Color(0xFF002D9C) else colors.accentPrimary
+            if (pressed) colors.accentAlertActive else colors.accentAlertHover
+        activeOutline -> if (pressed) colors.accentPrimaryActive else colors.accentPrimary
         pressed -> Color.Black.copy(alpha = 0.22f).compositeOver(background)
         hovered -> Color.Black.copy(alpha = 0.10f).compositeOver(background)
         else -> background

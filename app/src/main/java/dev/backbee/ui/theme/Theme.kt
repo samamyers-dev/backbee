@@ -25,7 +25,12 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import dev.backbee.R
 
-/** Carbon Gray 10 / Gray 100, adapted for native Compose. See docs/DESIGN.md. */
+/**
+ * The FREE THEM. palette (the "Free Them. — Home" refresh) on the Carbon
+ * component structure. Token names are Carbon's so no screen changes; values
+ * are the design system's. See docs/DESIGN.md for the mapping and the
+ * contrast figures behind the text grades.
+ */
 @Immutable
 data class BackbeeColors(
     val bgPage: Color,
@@ -49,44 +54,80 @@ data class BackbeeColors(
     val disabled: Color,
     val onInverseFunctional: Color,
     val onInverseAlert: Color,
-    val accentPrimary: Color = Color(0xFF0F62FE),
-    val accentSecondary: Color = Color(0xFF393939),
-    val accentFunctional: Color = Color(0xFF198038),
-    val accentInfo: Color = Color(0xFF0043CE),
-    val accentAlert: Color = Color(0xFFDA1E28),
-    val onAccentPrimary: Color = Color.White,
-    val onAccentSecondary: Color = Color.White,
-    val onAccentAlert: Color = Color.White,
-    /** The old ochre is decorative, never a replacement for Carbon action/status colors. */
-    val brandAccent: Color = Color(0xFFC99653),
-    val textOnColor: Color = Color.White,
+    val accentPrimary: Color,
+    /** Outline buttons fill with the primary accent on hover and this on press. */
+    val accentPrimaryActive: Color,
+    val accentSecondary: Color,
+    val accentFunctional: Color,
+    val accentInfo: Color,
+    val accentAlert: Color,
+    /** Danger outline buttons: hover fill, then press fill. Dark enough for [textOnColor]. */
+    val accentAlertHover: Color,
+    val accentAlertActive: Color,
+    val onAccentPrimary: Color,
+    val onAccentSecondary: Color,
+    val onAccentAlert: Color,
+    /** Fluoro Pink: the readout rule, the visualiser bars, the launcher ribbon. */
+    val brandAccent: Color,
+    /** Ink on any filled interactive surface. Paper on Press Green; near-black on the lifted green. */
+    val textOnColor: Color,
 ) {
     val interactive: Color get() = textAccent
     /** Fields and selected layers need the higher-contrast link grade. */
     val textAccentOnField: Color get() = textAccentSelected
 }
 
+// Raw palette. Components use the semantic tokens below, never these.
+private val Paper = Color(0xFFF4F1E8)
+private val PaperLifted = Color(0xFFFBF9F3)
+private val Field = Color(0xFFEAE6DB)
+private val Pressroom = Color(0xFF101A13)
+private val Bottle = Color(0xFF1B2E1F)
+private val PressGreen = Color(0xFF0F7A4A)
+private val PressGreenDeep = Color(0xFF0B5E38)
+private val PressGreenLifted = Color(0xFF2FA96C)
+private val PressGreenBright = Color(0xFF5FC98E)
+private val Fluoro = Color(0xFFFF4B7D)
+private val Amber = Color(0xFFF2B705)
+private val Vermilion = Color(0xFFE8442E)
+
 internal val LightColors = BackbeeColors(
-    bgPage = Color(0xFFF4F4F4), bgPanel = Color.White, layer02 = Color(0xFFF4F4F4),
-    bgInverse = Color(0xFF393939), textPrimary = Color(0xFF161616),
-    textInverse = Color.White, textMuted = Color(0xFF525252),
-    borderColor = Color(0xFFE0E0E0), borderStrong = Color(0xFF8D8D8D),
-    field = Color(0xFFE0E0E0), layerSelected = Color(0xFFE0E0E0),
-    focus = Color(0xFF0F62FE), textAccent = Color(0xFF0F62FE), textAccentSelected = Color(0xFF0043CE),
-    textFunctional = Color(0xFF0E6027), textSecondary = Color(0xFF8A3800),
-    textAlert = Color(0xFFDA1E28), textDisabled = Color(0xFF8D8D8D), disabled = Color(0xFFC6C6C6),
-    onInverseFunctional = Color(0xFFA7F0BA), onInverseAlert = Color(0xFFFFB3B8),
+    bgPage = Paper, bgPanel = PaperLifted, layer02 = Field,
+    bgInverse = Bottle, textPrimary = Bottle,
+    textInverse = Paper, textMuted = Color(0xFF5C685B),
+    borderColor = Color(0xFFD1D2C8), borderStrong = Bottle,
+    field = Field, layerSelected = Field,
+    focus = PressGreen, textAccent = PressGreen, textAccentSelected = PressGreenDeep,
+    textFunctional = PressGreen,
+    // Amber ink, pressed one step darker than the design's #8A6A00 to clear 4.5:1 on paper.
+    textSecondary = Color(0xFF7A5D00),
+    // Vermilion as text, not as a fill: the swatch itself is 3.5:1 on paper.
+    textAlert = Color(0xFFB8301E),
+    textDisabled = Color(0xFF889084), disabled = Color(0xFFD3D4CA),
+    onInverseFunctional = PressGreenLifted, onInverseAlert = Color(0xFFF26B57),
+    accentPrimary = PressGreen, accentPrimaryActive = PressGreenDeep,
+    accentSecondary = Fluoro, accentFunctional = PressGreen, accentInfo = Fluoro,
+    accentAlert = Vermilion, accentAlertHover = Color(0xFFB8301E), accentAlertActive = Color(0xFF8F2416),
+    onAccentPrimary = Paper, onAccentSecondary = Color(0xFF2B0A16), onAccentAlert = Paper,
+    brandAccent = Fluoro, textOnColor = Paper,
 )
 internal val DarkColors = BackbeeColors(
-    bgPage = Color(0xFF161616), bgPanel = Color(0xFF262626), layer02 = Color(0xFF393939),
-    bgInverse = Color(0xFFF4F4F4), textPrimary = Color(0xFFF4F4F4),
-    textInverse = Color(0xFF161616), textMuted = Color(0xFFC6C6C6),
-    borderColor = Color(0xFF393939), borderStrong = Color(0xFF6F6F6F),
-    field = Color(0xFF393939), layerSelected = Color(0xFF525252),
-    focus = Color.White, textAccent = Color(0xFF78A9FF), textAccentSelected = Color(0xFFA6C8FF),
-    textFunctional = Color(0xFF42BE65), textSecondary = Color(0xFFFFB784),
-    textAlert = Color(0xFFFF8389), textDisabled = Color(0xFF6F6F6F), disabled = Color(0xFF393939),
-    onInverseFunctional = Color(0xFF0E6027), onInverseAlert = Color(0xFFDA1E28),
+    bgPage = Pressroom, bgPanel = Bottle, layer02 = Color(0xFF2C3E2F),
+    bgInverse = Paper, textPrimary = Paper,
+    textInverse = Pressroom, textMuted = Color(0xFFB0B0A8),
+    borderColor = Color(0xFF343C35), borderStrong = Color(0xFF8D9088),
+    field = Color(0xFF2C3E2F), layerSelected = Color(0xFF3B4A3D),
+    focus = Paper, textAccent = PressGreenLifted, textAccentSelected = PressGreenBright,
+    textFunctional = PressGreenLifted, textSecondary = Amber,
+    // Vermilion lifted for text on the pressroom ground; the swatch is 4.49:1 there.
+    textAlert = Color(0xFFF26B57),
+    textDisabled = Color(0xFF777B73), disabled = Color(0xFF323A33),
+    onInverseFunctional = PressGreen, onInverseAlert = Color(0xFFB8301E),
+    accentPrimary = PressGreenLifted, accentPrimaryActive = PressGreenBright,
+    accentSecondary = Fluoro, accentFunctional = PressGreenLifted, accentInfo = Fluoro,
+    accentAlert = Vermilion, accentAlertHover = Vermilion, accentAlertActive = Color(0xFFF26B57),
+    onAccentPrimary = Color(0xFF06170E), onAccentSecondary = Color(0xFF2B0A16), onAccentAlert = Paper,
+    brandAccent = Fluoro, textOnColor = Color(0xFF06170E),
 )
 val LocalBackbeeColors = staticCompositionLocalOf { DarkColors }
 

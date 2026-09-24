@@ -188,9 +188,9 @@ private fun Visualizer(
  */
 private const val FLAT_LEVEL = 0.24f
 
-/** Fixed Gray 100 scrim keeps the small ochre brand detail legible over any artwork. */
-private val Scrim = Color(0xF0161616)
-private val ScrimForeground = Color(0xFFC6C6C6)
+/** A fixed pressroom scrim keeps the fluoro bars legible over any artwork, in either theme. */
+private val Scrim = Color(0xF0101A13)
+private val ScrimForeground = Color(0xFFB0B0A8)
 
 private fun DrawScope.drawBars(
     bars: Int,
