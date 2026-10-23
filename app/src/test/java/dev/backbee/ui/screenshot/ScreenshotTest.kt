@@ -326,7 +326,7 @@ private fun NowPlayingStates() {
     }
 }
 
-/** The scan-through bar: shown only when invoked, so both trims are here. */
+/** The scan-through bar, shown on the player at all times. */
 @Composable
 private fun ScanBarStates() {
     Column(
@@ -336,8 +336,8 @@ private fun ScanBarStates() {
         Label("Scan-through, mid-episode")
         ScanBar(positionMs = 1_601_000, durationMs = 4_680_000, onSeek = {})
 
-        Label("Scan-through, with the collapse affordance")
-        ScanBar(positionMs = 240_000, durationMs = 4_680_000, onSeek = {}, onCollapse = {})
+        Label("Scan-through, near the start")
+        ScanBar(positionMs = 240_000, durationMs = 4_680_000, onSeek = {})
     }
 }
 

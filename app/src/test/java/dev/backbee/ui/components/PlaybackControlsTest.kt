@@ -84,15 +84,6 @@ class PlaybackControlsTest {
         compose.runOnIdle { assertEquals(0, calls) }
     }
 
-    @Test fun collapseControlCallsBack() {
-        var calls = 0
-        compose.setContent {
-            BackbeeTheme { ScanBar(0L, 100_000L, {}, onCollapse = { calls++ }) }
-        }
-        compose.onNodeWithText("Hide").performClick()
-        compose.runOnIdle { assertEquals(1, calls) }
-    }
-
     @Test fun narrowLargeTextTransportKeepsSeparateAccessibleCallbacks() {
         var opens = 0
         var plays = 0

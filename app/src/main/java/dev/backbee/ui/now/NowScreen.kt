@@ -311,32 +311,22 @@ private fun SpineNow(
         }
 
         if (playingThis && playerState.durationMs > 0) {
-            // The clock doubles as the way into the scan bar, which stays out
-            // of sight until asked for - a permanently draggable strip next to
-            // the transport keys is exactly the mis-tap they exist to avoid.
-            var scanOpen by remember { mutableStateOf(false) }
-            if (scanOpen) {
-                ScanBar(
-                    positionMs = playerState.positionMs,
-                    durationMs = playerState.durationMs,
-                    onSeek = player::seekTo,
-                    onCollapse = { scanOpen = false },
-                    modifier = Modifier.padding(top = Dimens.space3),
-                )
-            } else {
-                Text(
-                    text = "${ArchiveProgress.formatClock(playerState.positionSeconds)}   " +
-                        "−${ArchiveProgress.formatClock(playerState.remainingMs / 1000)}   ⇄",
-                    style = BackbeeType.body,
-                    color = colors.textPrimary,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClickLabel = "Scan through the episode") { scanOpen = true }
-                        .heightIn(min = 48.dp)
-                        .padding(top = Dimens.space3),
-                    textAlign = TextAlign.Center,
-                )
-            }
+            Text(
+                text = "${ArchiveProgress.formatClock(playerState.positionSeconds)}   " +
+                    "−${ArchiveProgress.formatClock(playerState.remainingMs / 1000)}",
+                style = BackbeeType.body,
+                color = colors.textPrimary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Dimens.space3),
+                textAlign = TextAlign.Center,
+            )
+            ScanBar(
+                positionMs = playerState.positionMs,
+                durationMs = playerState.durationMs,
+                onSeek = player::seekTo,
+                modifier = Modifier.padding(top = Dimens.space2),
+            )
         }
 
         Spacer(Modifier.height(Dimens.space8))

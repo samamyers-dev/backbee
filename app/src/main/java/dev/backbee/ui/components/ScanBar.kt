@@ -2,7 +2,6 @@ package dev.backbee.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -39,10 +38,7 @@ import kotlin.math.abs
 /**
  * The scan-through bar: a classic draggable audio scrubber, in the house style.
  *
- * It is not on every view - it appears only when invoked, because eyes-free is
- * the default posture and a permanently draggable strip next to the transport
- * keys is exactly the mis-tap the giant buttons exist to avoid. Drag to a point
- * (or tap one) and the player seeks there on release.
+ * Drag to a point (or tap one) and the player seeks there on release.
  */
 @Composable
 fun ScanBar(
@@ -50,7 +46,6 @@ fun ScanBar(
     durationMs: Long,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    onCollapse: (() -> Unit)? = null,
 ) {
     val colors = backbeeColors
 
@@ -146,16 +141,6 @@ fun ScanBar(
                     text = "−${ArchiveProgress.formatClock(((durationMs - shownMs).coerceAtLeast(0)) / 1000)}",
                     style = BackbeeType.monoSmall,
                     color = colors.textMuted,
-                )
-            }
-            onCollapse?.let { collapse ->
-                Mono(
-                    text = "Hide",
-                    style = BackbeeType.monoSmall,
-                    color = colors.textMuted,
-                    modifier = Modifier
-                        .clickable(onClickLabel = "Hide the scan bar", onClick = collapse)
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
                 )
             }
         }
