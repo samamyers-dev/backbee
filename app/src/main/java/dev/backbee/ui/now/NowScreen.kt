@@ -242,7 +242,6 @@ private fun SpineNow(
                     "Playing out of sequence",
                     "Your place is still ep ${leftOff?.episodeNumber ?: ((leftOff?.orderIndex ?: 0) + 1)}",
                 ),
-                tone = colors.onInverseAlert,
             )
             Spacer(Modifier.height(Dimens.space2))
             CarbonOutlineButton(onClick = { leftOff?.let { player.playEpisode(it.id) } }) {

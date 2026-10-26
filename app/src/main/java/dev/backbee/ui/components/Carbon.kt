@@ -177,7 +177,13 @@ fun Mono(text: String, modifier: Modifier = Modifier, color: Color = backbeeColo
         style = style, maxLines = maxLines, textAlign = textAlign)
 }
 
-/** Diagnostic detail keeps Plex Mono as a small echo of the previous identity. */
+/**
+ * Diagnostic detail keeps Plex Mono as a small echo of the previous identity.
+ *
+ * [tone] defaults to the functional green, which is the right ink for status
+ * and information. Reserve [BackbeeColors.onInverseAlert] for lines that are
+ * actually a warning or a failure; ordinary notices should not read as alarms.
+ */
 @Composable
 fun Readout(lines: List<String>, modifier: Modifier = Modifier, tone: Color = backbeeColors.onInverseFunctional) {
     if (lines.isEmpty()) return

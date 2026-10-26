@@ -234,7 +234,6 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
                             "This replaces every position on this phone.",
                             "The app restarts when it is done.",
                         ),
-                        tone = colors.onInverseAlert,
                         modifier = Modifier.padding(top = Dimens.space2),
                     )
                     Row(
