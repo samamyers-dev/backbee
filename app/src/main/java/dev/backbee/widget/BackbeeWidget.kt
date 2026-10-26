@@ -79,7 +79,7 @@ private fun WidgetBody(title: String, subtitle: String) {
         )
         Text(
             text = subtitle,
-            style = TextStyle(color = ColorProvider(day = Color(0xFF5C685B), night = Color(0xFFB0B0A8)), fontFamily = FontFamily.SansSerif, fontSize = 12.sp),
+            style = TextStyle(color = ColorProvider(day = Color(0xFF5C685B), night = Color(0xFFC0C0B8)), fontFamily = FontFamily.SansSerif, fontSize = 12.sp),
         )
         Spacer(GlanceModifier.height(8.dp))
         Row(modifier = GlanceModifier.fillMaxWidth()) {

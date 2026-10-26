@@ -89,6 +89,18 @@ interface ShowDao {
     @Query("UPDATE shows SET last_refreshed_at = :at WHERE id = :id")
     suspend fun setLastRefreshedAt(id: Long, at: Long)
 
+    @Query("UPDATE shows SET title = :title, artwork_url = :artworkUrl WHERE id = :id")
+    suspend fun updateFeedMetadata(id: Long, title: String, artworkUrl: String?)
+
+    @Query("UPDATE shows SET speed = :speed WHERE id = :id")
+    suspend fun setSpeed(id: Long, speed: Float)
+
+    @Query("UPDATE shows SET skip_intro_s = :seconds WHERE id = :id")
+    suspend fun setSkipIntroSeconds(id: Long, seconds: Int)
+
+    @Query("UPDATE shows SET skip_outro_s = :seconds WHERE id = :id")
+    suspend fun setSkipOutroSeconds(id: Long, seconds: Int)
+
     @Query(
         """
         SELECT :showId AS show_id,
@@ -99,7 +111,8 @@ interface ShowDao {
                    CASE WHEN p.played = 1 THEN 0
                         ELSE MAX(0, COALESCE(e.duration_s, 0) - COALESCE(p.position_s, 0))
                    END), 0) AS remaining_seconds,
-               COALESCE(SUM(CASE WHEN m.starred = 1 THEN 1 ELSE 0 END), 0) AS starred_count
+               COALESCE(SUM(CASE WHEN m.starred = 1 THEN 1 ELSE 0 END), 0) AS starred_count,
+               MAX(COALESCE(p.played_at, p.updated_at)) AS last_touched_at
         FROM episodes e
         LEFT JOIN positions p ON p.episode_id = e.id
         LEFT JOIN marks m ON m.episode_id = e.id
@@ -225,7 +238,7 @@ interface EpisodeDao {
         """
         SELECT $EPISODE_COLUMNS $EPISODE_JOINS
         WHERE e.show_id = :showId
-          AND (e.title LIKE '%' || :query || '%' OR e.description LIKE '%' || :query || '%')
+          AND (e.title LIKE '%' || :query || '%' ESCAPE '\' OR e.description LIKE '%' || :query || '%' ESCAPE '\')
         ORDER BY e.order_index ASC
         LIMIT :limit
         """
@@ -235,7 +248,7 @@ interface EpisodeDao {
     @Query("SELECT description FROM episodes WHERE id = :episodeId")
     suspend fun description(episodeId: Long): String?
 
-    @Query("SELECT id, guid, order_index FROM episodes WHERE show_id = :showId")
+    @Query("SELECT id, guid, order_index, pub_date FROM episodes WHERE show_id = :showId")
     suspend fun identityMap(showId: Long): List<EpisodeIdentity>
 
     @Query("SELECT COALESCE(MAX(order_index), -1) FROM episodes WHERE show_id = :showId")
@@ -340,13 +353,24 @@ data class EpisodeIdentity(
     val id: Long,
     val guid: String,
     @androidx.room.ColumnInfo(name = "order_index") val orderIndex: Int,
+    @androidx.room.ColumnInfo(name = "pub_date") val pubDate: Long? = null,
 )
 
 @Dao
 interface PositionDao {
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsert(position: PositionEntity)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIgnore(position: PositionEntity): Long
+
+    @Update
+    suspend fun updateRow(position: PositionEntity)
+
+    @Transaction
+    suspend fun upsert(position: PositionEntity) {
+        if (insertIgnore(position) == -1L) {
+            updateRow(position)
+        }
+    }
 
     @Query("SELECT * FROM positions WHERE episode_id = :episodeId")
     suspend fun get(episodeId: Long): PositionEntity?
@@ -413,6 +437,9 @@ interface PositionDao {
     @Query("SELECT COUNT(*) FROM positions p JOIN episodes e ON e.id = p.episode_id WHERE e.show_id = :showId AND p.played = 1")
     suspend fun playedCount(showId: Long): Int
 
+    @Query("SELECT COUNT(*) FROM positions p JOIN episodes e ON e.id = p.episode_id WHERE e.show_id = :showId AND (p.played = 1 OR p.position_s > 0)")
+    suspend fun progressCount(showId: Long): Int
+
     // -- Bulk marking -------------------------------------------------------
     //
     // Every query below takes an explicit id list rather than a range, because
@@ -448,8 +475,19 @@ interface PositionDao {
     @Query("DELETE FROM positions WHERE episode_id IN (:episodeIds)")
     suspend fun deletePositions(episodeIds: List<Long>)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertAll(positions: List<PositionEntity>)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAllIgnore(positions: List<PositionEntity>): List<Long>
+
+    @Update
+    suspend fun updateAllRows(positions: List<PositionEntity>)
+
+    @Transaction
+    suspend fun upsertAll(positions: List<PositionEntity>) {
+        if (positions.isEmpty()) return
+        val results = insertAllIgnore(positions)
+        val existing = positions.filterIndexed { index, _ -> results[index] == -1L }
+        if (existing.isNotEmpty()) updateAllRows(existing)
+    }
 
     @Query(
         """
@@ -562,8 +600,18 @@ interface MarkDao {
 @Dao
 interface DownloadDao {
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsert(download: DownloadEntity)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIgnore(download: DownloadEntity): Long
+
+    @Update
+    suspend fun updateRow(download: DownloadEntity)
+
+    @Transaction
+    suspend fun upsert(download: DownloadEntity) {
+        if (insertIgnore(download) == -1L) {
+            updateRow(download)
+        }
+    }
 
     @Query("SELECT * FROM downloads WHERE episode_id = :episodeId")
     suspend fun get(episodeId: Long): DownloadEntity?

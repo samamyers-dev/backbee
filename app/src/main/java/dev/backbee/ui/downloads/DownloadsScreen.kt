@@ -58,7 +58,7 @@ fun DownloadsScreen(viewModel: DownloadsViewModel, modifier: Modifier = Modifier
                 if (state.capReached) {
                     Spacer(Modifier.height(Dimens.space2))
                     Text(
-                        "Cap reached. ahead-queue trimmed. " +
+                        "Cap reached. Ahead-queue trimmed. " +
                             "Raise the cap or shorten the delete-played window.",
                         style = BackbeeType.bodySmall,
                         color = colors.textAlert,

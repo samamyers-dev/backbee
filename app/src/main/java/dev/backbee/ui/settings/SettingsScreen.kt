@@ -142,21 +142,25 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
                 // shape of the rule is visible at a glance.
                 Row(horizontalArrangement = Arrangement.spacedBy(Dimens.space2)) {
                     state.settings.resumeTiers.forEachIndexed { index, tier ->
+                        val label = tierLabel(tier.pauseAtMostSeconds)
                         Column(
                             modifier = Modifier
                                 .weight(1f)
                                 .background(colors.field)
                                 .defaultMinSize(minHeight = 48.dp)
-                                .clickable {
+                                .clickable(role = Role.Button) {
                                     viewModel.setResumeTiers(
                                         state.settings.resumeTiers.bump(index, +5)
                                     )
+                                }
+                                .semantics(mergeDescendants = true) {
+                                    contentDescription = "Rewind ${tier.rewindSeconds} seconds for pause $label"
                                 }
                                 .padding(vertical = Dimens.space2),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Text("${tier.rewindSeconds}s", style = BackbeeType.body, color = colors.textAccentOnField)
-                            Text(tierLabel(tier.pauseAtMostSeconds), style = BackbeeType.labelSmall, color = colors.textMuted)
+                            Text(label, style = BackbeeType.labelSmall, color = colors.textMuted)
                         }
                     }
                 }
@@ -174,7 +178,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
                 Label("Backup")
                 Text(
                     "Every night a copy of your place in every archive goes to a folder you " +
-                        "Choose. pick one that syncs off the phone and losing it costs at most a day.",
+                        "choose. Pick one that syncs off the phone and losing it costs at most a day.",
                     style = BackbeeType.labelSmall,
                     color = colors.textMuted,
                     modifier = Modifier.padding(vertical = Dimens.space2),
@@ -242,7 +246,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
                             enabled = !restore.restoring,
                             modifier = Modifier.weight(1f),
                         ) {
-                            Label("Keep what i have", style = BackbeeType.bodySmall, color = colors.textPrimary)
+                            Label("Keep what I have", style = BackbeeType.bodySmall, color = colors.textPrimary)
                         }
                         CarbonOutlineButton(
                             onClick = viewModel::confirmRestore,
@@ -298,7 +302,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
                     modifier = Modifier.padding(top = Dimens.space2),
                 )
                 Text(
-                    "No accounts. no analytics. nothing about what you listen to leaves this phone.",
+                    "No accounts. No analytics. Nothing about what you listen to leaves this phone.",
                     style = BackbeeType.labelSmall,
                     color = colors.textMuted,
                     modifier = Modifier.padding(vertical = Dimens.space2),

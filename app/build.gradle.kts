@@ -129,11 +129,6 @@ kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
         freeCompilerArgs.addAll(
-            // Most of Media3 that a real player touches - ExoPlayer itself,
-            // MediaLibraryService, the data-source factories - is annotated
-            // @UnstableApi, which is a RequiresOptIn at ERROR level. Opting in
-            // once here beats annotating every playback class.
-            "-opt-in=androidx.media3.common.util.UnstableApi",
             "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
         )
     }

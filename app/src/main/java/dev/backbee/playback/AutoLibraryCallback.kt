@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package dev.backbee.playback
 
 import androidx.media3.common.C
@@ -6,7 +8,7 @@ import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService.LibraryParams
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaSession
-import androidx.media3.session.SessionResult
+import androidx.media3.session.SessionError
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -98,9 +100,9 @@ class AutoLibraryCallback(
         mediaId: String,
     ): ListenableFuture<LibraryResult<MediaItem>> = scope.future {
         val episodeId = mediaId.toLongOrNull()
-            ?: return@future LibraryResult.ofError<MediaItem>(SessionResult.RESULT_ERROR_BAD_VALUE)
+            ?: return@future LibraryResult.ofError<MediaItem>(SessionError.ERROR_BAD_VALUE)
         val row = playback.getRow(episodeId)
-            ?: return@future LibraryResult.ofError<MediaItem>(SessionResult.RESULT_ERROR_BAD_VALUE)
+            ?: return@future LibraryResult.ofError<MediaItem>(SessionError.ERROR_BAD_VALUE)
         val show = shows.getShow(row.showId)
         LibraryResult.ofItem(MediaItems.forEpisode(row, show), null)
     }

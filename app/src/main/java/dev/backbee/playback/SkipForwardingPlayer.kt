@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package dev.backbee.playback
 
 import androidx.media3.common.ForwardingPlayer

@@ -115,9 +115,7 @@ class EpisodeDetailViewModel(
     fun persistSpeed(speed: Float) {
         val row = state.value.row ?: return
         viewModelScope.launch {
-            container.showRepository.getShow(row.showId)?.let {
-                container.showRepository.updateShow(it.copy(speed = speed))
-            }
+            container.showRepository.setSpeed(row.showId, speed)
         }
     }
 

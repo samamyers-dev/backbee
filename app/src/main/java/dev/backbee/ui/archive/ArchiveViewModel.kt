@@ -5,8 +5,8 @@ import androidx.lifecycle.viewModelScope
 import dev.backbee.data.db.EpisodeRow
 import dev.backbee.data.db.ShowEntity
 import dev.backbee.di.AppContainer
-import java.util.Calendar
-import java.util.TimeZone
+import java.time.Instant
+import java.time.ZoneId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -102,12 +102,10 @@ class ArchiveViewModel(private val container: AppContainer) : ViewModel() {
         return rows.indexOfFirst { it.orderIndex == number - 1 }.takeIf { it >= 0 }
     }
 
-    private fun yearOf(millis: Long): Int {
-        calendar.timeInMillis = millis
-        return calendar.get(Calendar.YEAR)
-    }
+    private val zoneId: ZoneId = ZoneId.systemDefault()
 
-    private val calendar = Calendar.getInstance(TimeZone.getDefault())
+    private fun yearOf(millis: Long): Int =
+        Instant.ofEpochMilli(millis).atZone(zoneId).year
 
     private fun yearMarkers(rows: List<EpisodeRow>): List<YearMarker> {
         val markers = mutableListOf<YearMarker>()

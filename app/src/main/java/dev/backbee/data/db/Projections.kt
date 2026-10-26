@@ -53,6 +53,7 @@ data class ShowProgress(
     @ColumnInfo(name = "total_seconds") val totalSeconds: Long,
     @ColumnInfo(name = "remaining_seconds") val remainingSeconds: Long,
     @ColumnInfo(name = "starred_count") val starredCount: Int,
+    @ColumnInfo(name = "last_touched_at") val lastTouchedAt: Long? = null,
 )
 
 /** What the completion screen needs, in one pass over the show's episodes. */
