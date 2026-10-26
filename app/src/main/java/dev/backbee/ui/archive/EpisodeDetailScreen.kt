@@ -260,22 +260,6 @@ fun EpisodeDetailScreen(
             }
         }
 
-        // The description reads before the archive machinery below it: on the
-        // playing episode this page is the player, and "what is this one about"
-        // is asked far more often than "mark three hundred episodes played".
-        state.description?.let { description ->
-            Spacer(Modifier.height(Dimens.space5))
-            CarbonDivider()
-            Spacer(Modifier.height(Dimens.space4))
-            Label("Description")
-            Text(
-                text = stripHtml(description),
-                style = BackbeeType.body,
-                color = colors.textMuted,
-                modifier = Modifier.padding(top = Dimens.space2),
-            )
-        }
-
         Spacer(Modifier.height(Dimens.space5))
         CarbonDivider()
         Spacer(Modifier.height(Dimens.space4))
@@ -287,6 +271,19 @@ fun EpisodeDetailScreen(
                 onApply = viewModel::applyBulk,
                 onUndo = viewModel::undoBulk,
                 onDismiss = viewModel::dismissBulk,
+            )
+        }
+
+        state.description?.let { description ->
+            Spacer(Modifier.height(Dimens.space5))
+            CarbonDivider()
+            Spacer(Modifier.height(Dimens.space4))
+            Label("Description")
+            Text(
+                text = stripHtml(description),
+                style = BackbeeType.body,
+                color = colors.textMuted,
+                modifier = Modifier.padding(top = Dimens.space2),
             )
         }
 
