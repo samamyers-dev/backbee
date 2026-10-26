@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package dev.backbee.playback
 
 import android.util.Log
@@ -81,6 +83,8 @@ class PositionWriter(
             }
 
             Player.STATE_READY -> recordMeasuredDuration()
+
+            else -> Unit
         }
     }
 

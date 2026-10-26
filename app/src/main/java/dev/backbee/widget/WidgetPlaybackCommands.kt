@@ -3,6 +3,7 @@ package dev.backbee.widget
 import android.content.ComponentName
 import android.content.Context
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import dev.backbee.playback.AutoLibraryCallback
@@ -24,7 +25,12 @@ object WidgetPlaybackCommands {
     suspend fun toggle(context: Context) = withController(context) { controller ->
         when {
             controller.isPlaying -> controller.pause()
-            controller.mediaItemCount > 0 -> controller.play()
+            controller.mediaItemCount > 0 -> {
+                if (controller.playbackState == Player.STATE_IDLE) {
+                    controller.prepare()
+                }
+                controller.play()
+            }
             else -> {
                 // Cold start from the home screen: ask for where you left off and let
                 // the service work out which episode that is.

@@ -118,7 +118,7 @@ fun CompletionScreen(
         if (state.otherShows.isEmpty()) {
             item {
                 Text(
-                    "Nothing else waiting. add a show from the shelf when you are ready.",
+                    "Nothing else waiting. Add a show from the shelf when you are ready.",
                     style = BackbeeType.bodySmall,
                     color = colors.textMuted,
                 )

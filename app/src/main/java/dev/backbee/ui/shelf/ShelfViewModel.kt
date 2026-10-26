@@ -86,7 +86,7 @@ class ShelfViewModel(
                 // of rows, so this stays cheap.
                 combine(list.map { show -> shows.observeProgress(show.id).map { show to it } }) { pairs ->
                     pairs.map { (show, progress) ->
-                        ShelfEntry(show, progress, show.completedAt ?: show.lastRefreshedAt)
+                        ShelfEntry(show, progress, show.completedAt ?: progress?.lastTouchedAt ?: show.lastRefreshedAt)
                     }
                 }
             }

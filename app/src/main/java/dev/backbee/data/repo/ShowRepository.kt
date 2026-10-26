@@ -54,6 +54,12 @@ class ShowRepository(
 
     suspend fun updateShow(show: ShowEntity) = showDao.update(show)
 
+    suspend fun setSpeed(showId: Long, speed: Float) = showDao.setSpeed(showId, speed)
+
+    suspend fun setSkipIntroSeconds(showId: Long, seconds: Int) = showDao.setSkipIntroSeconds(showId, seconds)
+
+    suspend fun setSkipOutroSeconds(showId: Long, seconds: Int) = showDao.setSkipOutroSeconds(showId, seconds)
+
     suspend fun deleteShow(showId: Long) = showDao.delete(showId)
 
     suspend fun setCompletedAt(showId: Long, at: Long?) = showDao.setCompletedAt(showId, at)
@@ -95,7 +101,7 @@ class ShowRepository(
         val title = archive.head.title?.takeIf { it.isNotBlank() } ?: show.title
         val artwork = archive.head.artworkUrl ?: show.artworkUrl
         if (title != show.title || artwork != show.artworkUrl) {
-            showDao.update(show.copy(title = title, artworkUrl = artwork))
+            showDao.updateFeedMetadata(showId, title, artwork)
         }
 
         return ingest(showId, show.rssUrl, archive, now)
@@ -184,7 +190,7 @@ class ShowRepository(
         // - which covers recovering a truncated first import - the order is
         // rebuilt from publication date. After that, new episodes append to the
         // end, which is what "a still-running show" should do anyway.
-        val hasProgress = positionDao.playedCount(showId) > 0
+        val hasProgress = positionDao.progressCount(showId) > 0
         val reindex = !hasProgress
 
         var nextOrderIndex = if (reindex) 0 else episodeDao.maxOrderIndex(showId) + 1
@@ -223,6 +229,31 @@ class ShowRepository(
         }
 
         episodeDao.insertAll(toInsert)
+
+        // If a sliding-window feed dropped older episodes that are already in
+        // the database, reindexing only the incoming feed would assign 0..N to
+        // the window and leave the older rows at 0..K, creating duplicate
+        // order_index values. Re-sequence the entire show when any existing row
+        // was absent from the incoming feed.
+        if (reindex && existing.isNotEmpty()) {
+            val incomingGuids = episodes.mapTo(HashSet(episodes.size)) { it.guid }
+            val hadDropped = existing.keys.any { it !in incomingGuids }
+            if (hadDropped) {
+                val allRows = episodeDao.identityMap(showId)
+                val sorted = allRows.sortedWith(
+                    compareBy<dev.backbee.data.db.EpisodeIdentity> { it.pubDate == null }
+                        .thenBy { it.pubDate ?: Long.MAX_VALUE }
+                        .thenBy { it.orderIndex }
+                        .thenBy { it.id }
+                )
+                sorted.forEachIndexed { index, row ->
+                    if (row.orderIndex != index) {
+                        episodeDao.updateOrderIndex(row.id, index)
+                    }
+                }
+            }
+        }
+
         showDao.setLastRefreshedAt(showId, now)
 
         WriteCounts(added = toInsert.size, updated = updated, reindexed = reindex && existing.isNotEmpty())

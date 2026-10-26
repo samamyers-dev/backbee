@@ -239,7 +239,7 @@ class NowViewModel(
     fun setSpeed(speed: Float) {
         val show = state.value.show ?: return
         player.setSpeed(speed)
-        viewModelScope.launch { shows.updateShow(show.copy(speed = speed)) }
+        viewModelScope.launch { shows.setSpeed(show.id, speed) }
     }
 
     /**
@@ -250,8 +250,15 @@ class NowViewModel(
     fun markCurrentPlayedAndAdvance() {
         val playing = state.value.nowPlaying ?: return
         viewModelScope.launch {
-            playback.markPlayed(playing.id, playing.durationSeconds ?: player.state.value.positionSeconds)
-            player.next()
+            val completed = playback.markPlayed(
+                playing.id,
+                playing.durationSeconds ?: player.state.value.positionSeconds,
+            )
+            if (completed || state.value.upNext.isEmpty()) {
+                player.stopAndClear()
+            } else {
+                player.next()
+            }
         }
     }
 

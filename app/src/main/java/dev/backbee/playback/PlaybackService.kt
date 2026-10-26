@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package dev.backbee.playback
 
 import android.app.PendingIntent
@@ -79,6 +81,10 @@ class PlaybackService : MediaLibraryService() {
                 }
             },
             onArchiveCompleted = { showId -> Log.i(TAG, "Archive $showId complete") },
+            onEpisodeFinished = {
+                container.workScheduler.requestDownloadAhead(container.settingsStore.current().wifiOnlyDownloads)
+                refreshWidget()
+            },
         )
 
         // The status-bar icon is the one piece of the app on screen all day;

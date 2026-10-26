@@ -56,18 +56,21 @@ class SettingsViewModel(
         val clamped = speed.coerceIn(0.5f, 4f)
         // Applies to audio already in flight, exactly as the speed key on Now
         // does; a setting that only takes effect on the next episode is a bug.
-        val show = state.value.activeShow
-        if (show != null && player.state.value.showId == show.id) player.setSpeed(clamped)
-        updateShow { it.copy(speed = clamped) }
+        val show = state.value.activeShow ?: return
+        if (player.state.value.showId == show.id) player.setSpeed(clamped)
+        viewModelScope.launch { container.showRepository.setSpeed(show.id, clamped) }
     }
 
-    fun setSkipIntro(seconds: Int) = updateShow { it.copy(skipIntroSeconds = seconds.coerceIn(0, 600)) }
-
-    fun setSkipOutro(seconds: Int) = updateShow { it.copy(skipOutroSeconds = seconds.coerceIn(0, 600)) }
-
-    private fun updateShow(transform: (ShowEntity) -> ShowEntity) {
+    fun setSkipIntro(seconds: Int) {
         val show = state.value.activeShow ?: return
-        viewModelScope.launch { container.showRepository.updateShow(transform(show)) }
+        val clamped = seconds.coerceIn(0, 600)
+        viewModelScope.launch { container.showRepository.setSkipIntroSeconds(show.id, clamped) }
+    }
+
+    fun setSkipOutro(seconds: Int) {
+        val show = state.value.activeShow ?: return
+        val clamped = seconds.coerceIn(0, 600)
+        viewModelScope.launch { container.showRepository.setSkipOutroSeconds(show.id, clamped) }
     }
 
     // -- Global -------------------------------------------------------------

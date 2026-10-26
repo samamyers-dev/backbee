@@ -28,8 +28,9 @@ import dev.backbee.data.db.EpisodeRow
 import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
 import dev.backbee.ui.theme.backbeeColors
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
@@ -134,7 +135,7 @@ private fun Modifier.spoken(label: String): Modifier = clearAndSetSemantics { co
 private fun metaLine(row: EpisodeRow): String {
     val parts = mutableListOf<String>()
     if (row.isKept) parts += "Kept"
-    row.pubDate?.let { parts += DATE.format(Date(it)) }
+    row.pubDate?.let { parts += DATE.format(Instant.ofEpochMilli(it)) }
 
     val duration = row.durationSeconds
     val position = row.positionSeconds ?: 0
@@ -168,4 +169,5 @@ private fun highlightedTitle(title: String, needle: String?, accent: androidx.co
     }
 }
 
-private val DATE = SimpleDateFormat("d MMM yyyy", Locale.US)
+private val DATE: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("d MMM yyyy", Locale.US).withZone(ZoneId.systemDefault())

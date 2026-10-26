@@ -6,6 +6,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,6 +55,7 @@ class PlayerConnection(
     val state: StateFlow<PlayerState> = _state.asStateFlow()
 
     private var controller: MediaController? = null
+    private var controllerFuture: ListenableFuture<MediaController>? = null
     private var ticker: kotlinx.coroutines.Job? = null
 
     private val listener = object : Player.Listener {
@@ -61,11 +63,17 @@ class PlayerConnection(
     }
 
     fun connect() {
-        if (controller != null) return
+        if (controller != null || controllerFuture != null) return
         val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
         val future = MediaController.Builder(context, token).buildAsync()
+        controllerFuture = future
         future.addListener(
             {
+                if (controllerFuture !== future) {
+                    runCatching { future.get() }.getOrNull()?.release()
+                    return@addListener
+                }
+                controllerFuture = null
                 controller = runCatching { future.get() }.getOrNull()?.also { it.addListener(listener) }
                 publish()
                 startTicker()
@@ -77,6 +85,8 @@ class PlayerConnection(
     fun release() {
         ticker?.cancel()
         ticker = null
+        controllerFuture?.let { MediaController.releaseFuture(it) }
+        controllerFuture = null
         controller?.removeListener(listener)
         controller?.release()
         controller = null
@@ -100,6 +110,9 @@ class PlayerConnection(
     fun resume() {
         val controller = controller ?: return
         if (controller.mediaItemCount > 0) {
+            if (controller.playbackState == Player.STATE_IDLE) {
+                controller.prepare()
+            }
             controller.play()
         } else {
             controller.setMediaItem(MediaItem.Builder().setMediaId(AutoLibraryCallback.RESUME).build())
@@ -134,7 +147,12 @@ class PlayerConnection(
     }
 
     fun next() {
-        controller?.seekToNextMediaItem()
+        val controller = controller ?: return
+        if (controller.hasNextMediaItem()) {
+            controller.seekToNextMediaItem()
+        } else {
+            stopAndClear()
+        }
     }
 
     /**

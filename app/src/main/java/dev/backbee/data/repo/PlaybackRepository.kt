@@ -27,8 +27,13 @@ class PlaybackRepository(private val db: BackbeeDatabase) {
 
     fun observeStarred(showId: Long): Flow<List<EpisodeRow>> = episodeDao.observeStarred(showId)
 
-    fun search(showId: Long, query: String): Flow<List<EpisodeRow>> =
-        episodeDao.search(showId, query, SEARCH_RESULT_LIMIT)
+    fun search(showId: Long, query: String): Flow<List<EpisodeRow>> {
+        val escaped = query
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+        return episodeDao.search(showId, escaped, SEARCH_RESULT_LIMIT)
+    }
 
     suspend fun getRow(episodeId: Long): EpisodeRow? = episodeDao.getRow(episodeId)
 

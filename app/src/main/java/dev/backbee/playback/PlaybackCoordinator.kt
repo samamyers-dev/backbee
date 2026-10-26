@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package dev.backbee.playback
 
 import android.util.Log
@@ -47,6 +49,7 @@ class PlaybackCoordinator(
     private val settingsStore: SettingsStore,
     private val onDownloadNudge: () -> Unit,
     private val onArchiveCompleted: (showId: Long) -> Unit,
+    private val onEpisodeFinished: suspend (episodeId: Long) -> Unit = {},
 ) : Player.Listener {
 
     private var outroWatcher: Job? = null
@@ -57,6 +60,13 @@ class PlaybackCoordinator(
     init {
         player.addListener(this)
         scope.launch { settingsStore.settings.collect { applySettings(it) } }
+        scope.launch {
+            shows.observeActiveShow().collect { show ->
+                if (show != null && (activeShow == null || activeShow?.id == show.id)) {
+                    activeShow = show
+                }
+            }
+        }
     }
 
     // -- Planning -----------------------------------------------------------
@@ -151,6 +161,12 @@ class PlaybackCoordinator(
     // -- Player.Listener ----------------------------------------------------
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+            val skipIntroMs = (activeShow?.skipIntroSeconds ?: 0).coerceAtLeast(0) * 1000L
+            if (skipIntroMs > 0 && player.currentPosition < skipIntroMs) {
+                player.seekTo(skipIntroMs)
+            }
+        }
         // Auto-advance just moved us along; top the window back up and let the
         // download engine re-plan around the new position.
         scope.launch { extendWindowIfNeeded() }
@@ -244,7 +260,11 @@ class PlaybackCoordinator(
                             val finishedId = MediaItems.episodeIdOf(player.currentMediaItem)
                             player.seekToNextMediaItem()
                             if (finishedId != null) {
-                                scope.launch { playback.markPlayed(finishedId, position / 1000) }
+                                scope.launch {
+                                    val completed = playback.markPlayed(finishedId, position / 1000)
+                                    onEpisodeFinished(finishedId)
+                                    if (completed) activeShow?.id?.let(onArchiveCompleted)
+                                }
                             }
                         } else {
                             // Seeking to the end raises STATE_ENDED, which the

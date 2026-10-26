@@ -177,7 +177,7 @@ fun BackbeeNavHost(
                 ) { entry ->
                     val showId = entry.arguments?.getLong("showId") ?: return@composable
                     val vm: CompletionViewModel =
-                        viewModel(factory = viewModelFactory { CompletionViewModel(container, showId) })
+                        viewModel(factory = viewModelFactory { CompletionViewModel(container, showId, player) })
                     CompletionScreen(
                         viewModel = vm,
                         onActivatedNextShow = { navController.popBackStack(Routes.NOW, inclusive = false) },

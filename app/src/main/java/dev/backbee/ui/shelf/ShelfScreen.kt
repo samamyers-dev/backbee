@@ -180,7 +180,7 @@ fun ShelfScreen(
                                 entry.isComplete -> StatusChip(
                                     "Completed",
                                     background = colors.accentFunctional,
-                                    contentColor = colors.onAccentSecondary,
+                                    contentColor = colors.textOnColor,
                                 )
                                 else -> StatusChip(
                                     "Bookmarked — frozen",
@@ -257,9 +257,9 @@ fun ShelfScreen(
                 CarbonButton(
                     onClick = { viewModel.removeShow(showId); pendingRemoval = null },
                     background = colors.accentAlert,
-                    contentColor = colors.textOnColor,
+                    contentColor = colors.onAccentAlert,
                 ) {
-                    Label("Remove", style = BackbeeType.bodySmall, color = colors.textAlert)
+                    Label("Remove", style = BackbeeType.bodySmall, color = colors.onAccentAlert)
                 }
             },
             dismissButton = {

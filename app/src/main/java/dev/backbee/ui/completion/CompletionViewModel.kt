@@ -6,6 +6,7 @@ import dev.backbee.core.stats.CompletionStats
 import dev.backbee.data.db.EpisodeRow
 import dev.backbee.data.db.ShowEntity
 import dev.backbee.di.AppContainer
+import dev.backbee.playback.PlayerConnection
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +27,7 @@ data class CompletionUiState(
 class CompletionViewModel(
     private val container: AppContainer,
     private val showId: Long,
+    private val player: PlayerConnection? = null,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CompletionUiState())
@@ -60,6 +62,8 @@ class CompletionViewModel(
 
     fun activateShow(nextShowId: Long, onDone: () -> Unit) {
         viewModelScope.launch {
+            val playingShow = player?.state?.value?.showId
+            if (playingShow != null && playingShow != nextShowId) player.stopAndClear()
             container.showRepository.makeActive(nextShowId)
             container.workScheduler.requestDownloadAhead(
                 container.settingsStore.current().wifiOnlyDownloads

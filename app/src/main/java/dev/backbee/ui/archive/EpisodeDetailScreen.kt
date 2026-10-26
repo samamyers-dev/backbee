@@ -43,8 +43,9 @@ import dev.backbee.ui.components.ScanBar
 import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
 import dev.backbee.ui.theme.backbeeColors
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
@@ -110,7 +111,7 @@ fun EpisodeDetailScreen(
 
         Text(
             text = listOfNotNull(
-                row.pubDate?.let { DATE.format(Date(it)) },
+                row.pubDate?.let { DATE.format(Instant.ofEpochMilli(it)) },
                 row.durationSeconds?.let { ArchiveProgress.formatDuration(it) },
                 row.bytesDone?.takeIf { it > 0 }?.let { "${it / (1024 * 1024)} MB" },
                 if (row.isDownloaded) "On device" else null,
@@ -427,7 +428,8 @@ private fun BulkSection(
     }
 }
 
-private val DATE = SimpleDateFormat("d MMMM yyyy", Locale.US)
+private val DATE: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.US).withZone(ZoneId.systemDefault())
 
 /** Feed descriptions are full of markup; strip it rather than render a wall of tags. */
 private fun stripHtml(raw: String): String = raw

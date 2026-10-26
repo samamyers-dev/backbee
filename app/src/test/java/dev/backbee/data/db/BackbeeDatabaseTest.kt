@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import dev.backbee.data.repo.PlaybackRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -209,5 +210,54 @@ class BackbeeDatabaseTest {
 
         assertThat(db.episodeDao().count(showId)).isEqualTo(0)
         assertThat(db.positionDao().get(rows[0].id)).isNull()
+    }
+
+    @Test
+    fun `progress aggregate reports lastTouchedAt and progressCount includes partial listens`() = runTest {
+        val rows = db.episodeDao().observeArchive(showId).first()
+        assertThat(db.positionDao().progressCount(showId)).isEqualTo(0)
+
+        db.positionDao().savePosition(rows[0].id, positionSeconds = 45, updatedAt = 1_234L)
+        assertThat(db.positionDao().playedCount(showId)).isEqualTo(0)
+        assertThat(db.positionDao().progressCount(showId)).isEqualTo(1)
+
+        val progress = db.showDao().observeProgress(showId).first()
+        assertThat(progress?.lastTouchedAt).isEqualTo(1_234L)
+    }
+
+    @Test
+    fun `targeted show updates do not clobber concurrent speed or skip changes`() = runTest {
+        db.showDao().setSpeed(showId, 1.7f)
+        db.showDao().setSkipIntroSeconds(showId, 15)
+        db.showDao().setSkipOutroSeconds(showId, 30)
+        db.showDao().updateFeedMetadata(showId, "Renamed Archive", "https://cdn.example/art.jpg")
+
+        val updated = db.showDao().getById(showId)
+        assertThat(updated?.title).isEqualTo("Renamed Archive")
+        assertThat(updated?.artworkUrl).isEqualTo("https://cdn.example/art.jpg")
+        assertThat(updated?.speed).isWithin(0.001f).of(1.7f)
+        assertThat(updated?.skipIntroSeconds).isEqualTo(15)
+        assertThat(updated?.skipOutroSeconds).isEqualTo(30)
+    }
+
+    @Test
+    fun `search escapes SQLite LIKE wildcards`() = runTest {
+        db.episodeDao().insertAll(
+            listOf(
+                EpisodeEntity(
+                    showId = showId, guid = "guid-pct", orderIndex = 5,
+                    title = "100% Genuine", pubDate = 5_000L, durationSeconds = 600,
+                    enclosureUrl = "https://cdn.example/5.mp3", episodeNumber = 6,
+                ),
+                EpisodeEntity(
+                    showId = showId, guid = "guid-plain", orderIndex = 6,
+                    title = "1000 Reasons", pubDate = 6_000L, durationSeconds = 600,
+                    enclosureUrl = "https://cdn.example/6.mp3", episodeNumber = 7,
+                ),
+            )
+        )
+        val repo = PlaybackRepository(db)
+        val hits = repo.search(showId, "100%").first()
+        assertThat(hits.map { it.title }).containsExactly("100% Genuine")
     }
 }

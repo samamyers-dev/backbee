@@ -23,8 +23,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -83,7 +88,7 @@ fun NowScreen(
             modifier = modifier,
             readout = listOf(
                 "No account required",
-                "No sync. no backend.",
+                "No sync. No backend.",
                 "One show at a time, on purpose.",
             ),
             action = { CarbonButton(onClick = onOpenShelf) { Label("Add a show", color = backbeeColors.onAccentPrimary) } },
@@ -184,7 +189,7 @@ private fun SpineNow(
         target?.let { row ->
             Text(
                 text = listOfNotNull(
-                    row.pubDate?.let { java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.US).format(java.util.Date(it)) },
+                    row.pubDate?.let { NOW_DATE.format(Instant.ofEpochMilli(it)) },
                     row.durationSeconds?.let { ArchiveProgress.formatDuration(it) },
                 ).joinToString("  ·  "),
                 style = BackbeeType.bodySmall,
@@ -442,8 +447,11 @@ private fun UpNextRow(row: EpisodeRow, onClick: () -> Unit) {
                 )
             }
             if (row.isDownloaded) {
-                GlyphText(Glyph.DOWNLOADED, colors.textFunctional, Modifier.size(20.dp))
+                GlyphText(Glyph.DOWNLOADED, colors.textFunctional, Modifier.size(20.dp).clearAndSetSemantics {})
             }
         }
     }
 }
+
+private val NOW_DATE: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("d MMM yyyy", Locale.US).withZone(ZoneId.systemDefault())
