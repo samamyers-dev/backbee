@@ -13,6 +13,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.backbee.core.playback.ResumeTier
 import dev.backbee.core.playback.SmartResume
+import dev.backbee.ui.theme.BackbeePalette
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -42,6 +43,7 @@ data class Settings(
     /** SAF tree URI of the folder the nightly backup writes to. Ideally one that syncs off the phone. */
     val backupFolderUri: String? = null,
     val backupEnabled: Boolean = true,
+    val colorPalette: BackbeePalette = BackbeePalette.DEFAULT,
 ) {
     val deletePlayedAfterMillis: Long get() = deletePlayedAfterHours * 3_600_000L
 }
@@ -59,6 +61,7 @@ class SettingsStore(private val context: Context) {
         val skipBack = intPreferencesKey("skip_back_seconds")
         val backupFolderUri = stringPreferencesKey("backup_folder_uri")
         val backupEnabled = booleanPreferencesKey("backup_enabled")
+        val colorPalette = stringPreferencesKey("color_palette")
     }
 
     val settings: Flow<Settings> = context.settingsDataStore.data.map { prefs ->
@@ -74,6 +77,7 @@ class SettingsStore(private val context: Context) {
             skipBackSeconds = prefs[Keys.skipBack] ?: defaults.skipBackSeconds,
             backupFolderUri = prefs[Keys.backupFolderUri],
             backupEnabled = prefs[Keys.backupEnabled] ?: defaults.backupEnabled,
+            colorPalette = BackbeePalette.fromId(prefs[Keys.colorPalette]),
         )
     }
 
@@ -103,6 +107,8 @@ class SettingsStore(private val context: Context) {
     }
 
     suspend fun setBackupEnabled(value: Boolean) = edit { it[Keys.backupEnabled] = value }
+
+    suspend fun setColorPalette(palette: BackbeePalette) = edit { it[Keys.colorPalette] = palette.id }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         context.settingsDataStore.edit(block)

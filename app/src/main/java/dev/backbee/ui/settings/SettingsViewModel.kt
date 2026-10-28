@@ -9,6 +9,7 @@ import dev.backbee.data.prefs.DiagnosticsSnapshot
 import dev.backbee.data.prefs.Settings
 import dev.backbee.di.AppContainer
 import dev.backbee.playback.PlayerConnection
+import dev.backbee.ui.theme.BackbeePalette
 import dev.backbee.work.BackupPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -121,6 +122,10 @@ class SettingsViewModel(
 
     fun setBackupEnabled(value: Boolean) = edit {
         container.settingsStore.setBackupEnabled(value)
+    }
+
+    fun setColorPalette(palette: BackbeePalette) = edit {
+        container.settingsStore.setColorPalette(palette)
     }
 
     fun backupNow() = container.workScheduler.backupNow()

@@ -17,77 +17,42 @@ Playback, feeds, persistence, downloads and backup behavior are not redesigned.
 
 ## Visual foundation
 
-The colours are the **FREE THEM.** palette, from the "Free Them. — Home"
-refresh (24 Sep 2026), carried on the Carbon component structure below.
-Token names in `ui/theme/Theme.kt` stay Carbon's so screens did not change;
-every value is the design system's or derived from it by the mix noted.
+Backbee ships with **four user-selectable color palettes** (`BackbeePalette` in
+`ui/theme/Theme.kt`), switchable in Settings → Color palette and persisted in
+DataStore:
 
-Raw swatches:
+1. **Parchment** *(default)* — Warm sandstone paper (`#F4EFE6`) and espresso
+   ink (`#231E1A`) with terracotta (`#9A4B1A`), ochre (`#C99653`), and sage
+   green (`#1E6641`).
+2. **Carbon** — Clean graphite (`#F4F4F4` / `#161616`) with IBM blue
+   (`#0F62FE` / `#5C97FF`) and functional green (`#196F31` / `#42BE65`).
+3. **Fjord** — Cool limestone (`#EEF2F6`) and deep slate (`#0F1720`) with
+   oceanic teal (`#0E5A7A` / `#48B5DE`) and seafoam (`#166544` / `#48C792`).
+4. **Pressroom** — Botanical paper (`#F4F1E8`) and dark pressroom (`#101A13`)
+   with press green (`#0F7A4A` / `#2FA96C`) and balanced sage tones.
 
-| Name | Hex | Role in the design |
-|---|---|---|
-| Paper | `#F4F1E8` | light canvas; text and borders on dark |
-| Pressroom | `#101A13` | dark canvas |
-| Bottle | `#1B2E1F` | ink, borders and shadows on light; panel on dark |
-| Press Green | `#0F7A4A` | primary and functional accent |
-| Press Green, lifted | `#2FA96C` | the same accent on the dark ground |
-| Fluoro Pink | `#FF4B7D` | secondary, info, and the brand pop |
-| Acid | `#D6FF3F` | highlight (unused in the app so far) |
-| Amber | `#F2B705` | warning |
-| Vermilion | `#E8442E` | alert |
-| Field | `#EAE6DB` | inputs and the recessed layer |
-
-Semantic tokens:
-
-| Token | Light | Dark |
-|---|---|---|
-| Page | paper | pressroom |
-| Panel / tile | `#FBF9F3` paper lifted toward white | bottle |
-| Layer 02, field | field | `#2C3E2F` paper 8% over bottle |
-| Selected layer | field (the design's row hover) | `#3B4A3D` |
-| Text primary | bottle | paper |
-| Text muted | `#5C685B` bottle 70% | `#C0C0B8` paper 80% |
-| Border subtle | `#D1D2C8` bottle 16% | `#343C35` paper 16% |
-| Border strong | bottle | `#8D9088` paper 55% |
-| Interactive text | `#0B5E38` green deep | `#45C182` green bright |
-| Interactive text on fields, selected rows | `#094A2C` | `#6ED49B` |
-| Focus | Press Green | paper |
-| Success text | `#0B5E38` | `#45C182` |
-| Warning text | `#7A5D00` amber ink | amber |
-| Error text | `#B8301E` vermilion ink | `#F78D7C` vermilion lifted twice |
-| Primary button | Press Green / paper; pressed `#0B5E38` | lifted green / `#06170E`; pressed `#45C182` |
-| Secondary, info | fluoro / `#2B0A16` | same |
-| Danger button | `#B8301E` / paper; pressed `#8F2416` | vermilion / `#06170E`; pressed `#F26B57` |
-| Brand accent | fluoro | fluoro |
-
-Every text token clears 4.5:1 on every surface it is drawn on, including
-the recessed field layer and the selected row, and every fill clears it
-under its own ink; `CarbonContrastTest` holds that line. Where a raw swatch
-fell short as text it was pressed a step in the direction of its ground:
-Press Green is 4.3:1 on the field layer, the lifted green 3.9:1 on the
-raised dark layer, amber 4.49:1 on paper, vermilion 3.5:1 on paper and 3.7:1
-on the raised dark layer. The fills keep the swatches except light-mode
-alert, where paper on vermilion is 3.5:1 and the ink grade is used for the
-fill too.
+Every text token in all four palettes (light and dark) clears 4.5:1 WCAG
+contrast on every contextual surface it is drawn on (`bgPage`, `bgPanel`,
+`layer02`, `field`, `layerSelected`, `bgInverse`), and every interactive fill
+clears 4.5:1 under its own ink; `CarbonContrastTest` verifies all 8 theme
+variants (4 palettes × light/dark).
 
 Use semantic tokens from `ui/theme/Theme.kt`, not raw hex in screen code.
 Filled actions use `accentPrimary` with `onAccentPrimary`; links use
 `textAccent`. Outline buttons fill with `accentPrimary` on hover and
 `accentPrimaryActive` on press, danger with `accentAlertHover` and
 `accentAlertActive`, each under its own ink (`onAccentPrimary`,
-`onAccentAlert`); `textOnColor` is the ink for the primary family only. Inverse diagnostic
-panels use explicit inverse text tokens rather than assuming one colour works
-on both themes.
+`onAccentAlert`); `textOnColor` is the ink for the primary family only. Inverse
+diagnostic panels use explicit inverse text tokens rather than assuming one
+colour works on both themes.
 
 ### The brand detail
 
-Fluoro Pink is **`brandAccent`**: the rule down the side of a readout, the
-visualiser bars over artwork, the launcher ribbon. The design's instrument
-bars are bottle with the live bar in fluoro, which is where that comes from.
-Plex Mono remains for timestamps, episode indexes and diagnostics. The
-archive-spine metaphor remains. Hard offset shadows, page grids, heavy
-outlines, black-weight headings and forced uppercase stay retired: this is
-the palette on the Carbon structure, not the brutalist form.
+`brandAccent` colours the rule down the side of a readout and the visualiser
+bars over artwork. Plex Mono remains for timestamps, episode indexes and
+diagnostics. The archive-spine metaphor remains. Hard offset shadows, page
+grids, heavy outlines, black-weight headings and forced uppercase stay retired:
+each palette sits on the Carbon component structure.
 
 ### Typography and spacing
 

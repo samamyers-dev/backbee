@@ -8,9 +8,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import dev.backbee.BackbeeApp
+import dev.backbee.data.prefs.Settings
 import dev.backbee.playback.PlayerConnection
 import dev.backbee.ui.theme.BackbeeTheme
 
@@ -31,7 +34,8 @@ class MainActivity : ComponentActivity() {
         askForNotificationsIfNeeded()
 
         setContent {
-            BackbeeTheme {
+            val settings by container.settingsStore.settings.collectAsStateWithLifecycle(initialValue = Settings())
+            BackbeeTheme(palette = settings.colorPalette) {
                 BackbeeNavHost(
                     container = container,
                     player = playerConnection,

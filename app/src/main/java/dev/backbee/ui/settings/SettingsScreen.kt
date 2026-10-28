@@ -5,12 +5,17 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -26,6 +31,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -39,9 +46,11 @@ import dev.backbee.ui.components.CarbonOutlineButton
 import dev.backbee.ui.components.CarbonPanel
 import dev.backbee.ui.components.Label
 import dev.backbee.ui.components.Readout
+import dev.backbee.ui.theme.BackbeePalette
 import dev.backbee.ui.theme.BackbeeType
 import dev.backbee.ui.theme.Dimens
 import dev.backbee.ui.theme.backbeeColors
+import dev.backbee.ui.theme.colors
 
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) {
@@ -89,6 +98,17 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
                     Stepper("Skip outro", "${show.skipOutroSeconds}s",
                         { viewModel.setSkipOutro(show.skipOutroSeconds - 5) }, { viewModel.setSkipOutro(show.skipOutroSeconds + 5) })
                 }
+            }
+        }
+
+        item {
+            CarbonPanel(Modifier.fillMaxWidth()) {
+                Label("Color palette")
+                Spacer(Modifier.height(Dimens.space2))
+                PaletteSelector(
+                    selected = state.settings.colorPalette,
+                    onSelect = viewModel::setColorPalette,
+                )
             }
         }
 
@@ -355,6 +375,61 @@ private fun StepKey(symbol: String, actionLabel: String, onClick: () -> Unit) {
             .semantics(mergeDescendants = true) { contentDescription = actionLabel },
     ) {
         Label(symbol, style = BackbeeType.body)
+    }
+}
+
+@Composable
+private fun PaletteSelector(
+    selected: BackbeePalette,
+    onSelect: (BackbeePalette) -> Unit,
+) {
+    val colors = backbeeColors
+    val dark = isSystemInDarkTheme()
+    Column(
+        modifier = Modifier.fillMaxWidth().selectableGroup(),
+        verticalArrangement = Arrangement.spacedBy(Dimens.space2),
+    ) {
+        BackbeePalette.entries.forEach { palette ->
+            val isSelected = palette == selected
+            val preview = palette.colors(dark)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 48.dp)
+                    .background(if (isSelected) colors.layerSelected else colors.field)
+                    .drawBehind {
+                        if (isSelected) {
+                            drawRect(colors.interactive, size = Size(4.dp.toPx(), size.height))
+                        }
+                    }
+                    .selectable(
+                        selected = isSelected,
+                        role = Role.RadioButton,
+                        onClick = { onSelect(palette) },
+                    )
+                    .padding(horizontal = Dimens.space3, vertical = Dimens.space2),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Dimens.space3),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Box(Modifier.size(14.dp, 28.dp).background(preview.bgPage))
+                    Box(Modifier.size(14.dp, 28.dp).background(preview.accentPrimary))
+                    Box(Modifier.size(14.dp, 28.dp).background(preview.brandAccent))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = palette.label,
+                        style = BackbeeType.bodySmall,
+                        color = if (isSelected) colors.textAccentSelected else colors.textPrimary,
+                    )
+                    Text(
+                        text = palette.summary,
+                        style = BackbeeType.labelSmall,
+                        color = colors.textMuted,
+                    )
+                }
+            }
+        }
     }
 }
 

@@ -10,11 +10,11 @@ UI = ROOT / 'app/src/main/java/dev/backbee/ui'
 class CarbonFoundationTest(unittest.TestCase):
     def test_carbon_theme_and_local_plex_replace_brutalist_tokens(self):
         theme = (UI / 'theme/Theme.kt').read_text()
-        # FREE THEM. palette: paper, pressroom, Press Green (and lifted), Fluoro Pink.
-        for token in ['0xFFF4F1E8', '0xFF101A13', '0xFF0F7A4A', '0xFF2FA96C', '0xFFFF4B7D']:
+        # Four user-selectable palettes: Parchment, Carbon, Fjord, Pressroom.
+        for palette in ['PARCHMENT', 'CARBON', 'FJORD', 'PRESSROOM']:
+            self.assertIn(palette, theme)
+        for token in ['0xFFF4EFE6', '0xFF0F62FE', '0xFFEEF2F6', '0xFFF4F1E8', '0xFF0F7A4A']:
             self.assertIn(token, theme)
-        for stale in ['0xFF0F62FE', '0xFFC99653', '0xFF161616']:
-            self.assertNotIn(stale, theme)
         for font in ['ibm_plex_sans_regular', 'ibm_plex_sans_semibold', 'ibm_plex_sans_light', 'ibm_plex_mono_regular']:
             self.assertIn('R.font.' + font, theme)
             self.assertTrue((ROOT / 'app/src/main/res/font' / (font + '.ttf')).is_file())

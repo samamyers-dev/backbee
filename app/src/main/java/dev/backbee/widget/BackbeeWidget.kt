@@ -32,6 +32,8 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import dev.backbee.BackbeeApp
+import dev.backbee.ui.theme.BackbeePalette
+import dev.backbee.ui.theme.colors
 
 /**
  * Resume/pause and skip forward. Nothing else.
@@ -48,22 +50,25 @@ class BackbeeWidget : GlanceAppWidget() {
         val container = (context.applicationContext as BackbeeApp).container
         val show = container.showRepository.activeShow()
         val target = show?.let { container.playbackRepository.resumeTarget(it.id) }
+        val palette = container.settingsStore.current().colorPalette
 
         val title = target?.title ?: show?.title ?: "Nothing active"
         val subtitle = target?.let { "Ep ${it.episodeNumber ?: (it.orderIndex + 1)}" } ?: "Add a show"
 
         provideContent {
-            WidgetBody(title = title, subtitle = subtitle)
+            WidgetBody(title = title, subtitle = subtitle, palette = palette)
         }
     }
 }
 
 @Composable
-private fun WidgetBody(title: String, subtitle: String) {
+private fun WidgetBody(title: String, subtitle: String, palette: BackbeePalette) {
+    val day = palette.colors(darkTheme = false)
+    val night = palette.colors(darkTheme = true)
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(ColorProvider(day = Color(0xFFFBF9F3), night = Color(0xFF1B2E1F)))
+            .background(ColorProvider(day = day.bgPanel, night = night.bgPanel))
             .padding(16.dp),
         verticalAlignment = Alignment.Vertical.CenterVertically,
     ) {
@@ -71,7 +76,7 @@ private fun WidgetBody(title: String, subtitle: String) {
             text = title,
             maxLines = 2,
             style = TextStyle(
-                color = ColorProvider(day = Color(0xFF1B2E1F), night = Color(0xFFF4F1E8)),
+                color = ColorProvider(day = day.textPrimary, night = night.textPrimary),
                 fontFamily = FontFamily.SansSerif,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
@@ -79,17 +84,23 @@ private fun WidgetBody(title: String, subtitle: String) {
         )
         Text(
             text = subtitle,
-            style = TextStyle(color = ColorProvider(day = Color(0xFF5C685B), night = Color(0xFFC0C0B8)), fontFamily = FontFamily.SansSerif, fontSize = 12.sp),
+            style = TextStyle(
+                color = ColorProvider(day = day.textMuted, night = night.textMuted),
+                fontFamily = FontFamily.SansSerif,
+                fontSize = 12.sp,
+            ),
         )
         Spacer(GlanceModifier.height(8.dp))
         Row(modifier = GlanceModifier.fillMaxWidth()) {
             WidgetButton(
                 label = "Play / pause",
+                palette = palette,
                 modifier = GlanceModifier.clickable(actionRunCallback<TogglePlaybackAction>()),
             )
             Spacer(GlanceModifier.width(8.dp))
             WidgetButton(
                 label = "Skip",
+                palette = palette,
                 modifier = GlanceModifier.clickable(actionRunCallback<SkipForwardAction>()),
             )
         }
@@ -97,18 +108,20 @@ private fun WidgetBody(title: String, subtitle: String) {
 }
 
 @Composable
-private fun WidgetButton(label: String, modifier: GlanceModifier = GlanceModifier) {
+private fun WidgetButton(label: String, palette: BackbeePalette, modifier: GlanceModifier = GlanceModifier) {
+    val day = palette.colors(darkTheme = false)
+    val night = palette.colors(darkTheme = true)
     Box(
         modifier = modifier
             .height(48.dp)
-            .background(ColorProvider(day = Color(0xFF0F7A4A), night = Color(0xFF2FA96C)))
+            .background(ColorProvider(day = day.accentPrimary, night = night.accentPrimary))
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = label,
             style = TextStyle(
-                color = ColorProvider(day = Color(0xFFF4F1E8), night = Color(0xFF06170E)),
+                color = ColorProvider(day = day.onAccentPrimary, night = night.onAccentPrimary),
                 fontFamily = FontFamily.SansSerif,
                 fontWeight = FontWeight.Normal,
                 fontSize = 14.sp,
