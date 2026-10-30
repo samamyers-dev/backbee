@@ -1,6 +1,7 @@
 package dev.backbee.core.download
 
 import com.google.common.truth.Truth.assertThat
+import dev.backbee.core.playback.ListeningDirection
 import org.junit.Test
 
 class DownloadPlannerTest {
@@ -221,6 +222,103 @@ class DownloadPlannerTest {
         val second = DownloadPlanner(config).plan(afterFirst, currentOrderIndex = 10, nowMillis = now)
 
         // Nothing left to do, and nothing it just fetched gets thrown away.
+        assertThat(second.toDownload).isEmpty()
+        assertThat(second.toDelete).isEmpty()
+    }
+
+    // -- Newest first --------------------------------------------------------
+    //
+    // A newest-first show walks towards lower order indexes. Everything that was
+    // "ahead" flips: the window, the episodes that count as behind, and which
+    // downloaded episode gets sacrificed under pressure.
+
+    @Test
+    fun `newest first fills the look-ahead window towards older episodes`() {
+        val plan = DownloadPlanner(DownloadConfig(downloadAhead = 10, storageCapBytes = 100L * 1024 * mb))
+            .plan(
+                archive(size = 1000),
+                currentOrderIndex = 700,
+                nowMillis = now,
+                direction = ListeningDirection.NEWEST_FIRST,
+            )
+
+        assertThat(plan.toDownload).hasSize(11)
+        assertThat(plan.toDownload.first()).isEqualTo(700L)
+        assertThat(plan.toDownload.last()).isEqualTo(690L)
+        assertThat(plan.toDownload).isInOrder(compareByDescending<Long> { it })
+        assertThat(plan.reasons[690L]).isEqualTo("look-ahead slot 10")
+    }
+
+    @Test
+    fun `newest first skips played episodes without losing look-ahead slots`() {
+        val slots = archive(size = 100).mapIndexed { i, slot ->
+            if (i in 96..98) slot.copy(played = true, playedAtMillis = now) else slot
+        }
+        val plan = DownloadPlanner(DownloadConfig(downloadAhead = 3, storageCapBytes = 100L * 1024 * mb))
+            .plan(slots, currentOrderIndex = 99, nowMillis = now, direction = ListeningDirection.NEWEST_FIRST)
+
+        assertThat(plan.toDownload).containsExactly(99L, 95L, 94L, 93L).inOrder()
+    }
+
+    @Test
+    fun `newest first treats higher indexes as behind and lower ones as beyond the window`() {
+        val slots = archive(size = 1000, downloaded = setOf(701, 702, 650))
+        val plan = DownloadPlanner(DownloadConfig(downloadAhead = 5, storageCapBytes = 100L * 1024 * mb))
+            .plan(slots, currentOrderIndex = 700, nowMillis = now, direction = ListeningDirection.NEWEST_FIRST)
+
+        assertThat(plan.toDelete).containsAtLeast(701L, 702L, 650L)
+        assertThat(plan.reasons[701L]).isEqualTo("behind the current position")
+        assertThat(plan.reasons[650L]).contains("beyond the 5-episode look-ahead")
+    }
+
+    @Test
+    fun `newest first gives up the furthest-ahead episode, which is the lowest index`() {
+        // 690 and 691 are already on disk, both ahead of playback at 700 and
+        // inside the look-ahead window. The cap allows three episodes, so the
+        // pair furthest away (690, then 691) makes room for 700, 699 and 698.
+        val slots = archive(size = 1000, downloaded = setOf(690, 691))
+        val plan = DownloadPlanner(DownloadConfig(downloadAhead = 15, storageCapBytes = 150 * mb))
+            .plan(slots, currentOrderIndex = 700, nowMillis = now, direction = ListeningDirection.NEWEST_FIRST)
+
+        assertThat(plan.toDownload).containsExactly(700L, 699L, 698L).inOrder()
+        assertThat(plan.toDelete).containsExactly(690L, 691L).inOrder()
+        assertThat(plan.projectedBytes).isAtMost(150 * mb)
+    }
+
+    @Test
+    fun `newest first never reclaims the loaded episode`() {
+        val slots = archive(size = 1000, downloaded = setOf(690, 691))
+        val plan = DownloadPlanner(DownloadConfig(downloadAhead = 1, storageCapBytes = 100 * mb))
+            .plan(
+                slots,
+                currentOrderIndex = 700,
+                nowMillis = now,
+                loadedEpisodeId = 690L,
+                direction = ListeningDirection.NEWEST_FIRST,
+            )
+
+        assertThat(plan.toDelete).doesNotContain(690L)
+        assertThat(plan.toDelete).contains(691L)
+    }
+
+    @Test
+    fun `the newest-first plan is stable when run against its own outcome`() {
+        val config = DownloadConfig(downloadAhead = 5, storageCapBytes = 100L * 1024 * mb)
+        val first = DownloadPlanner(config).plan(
+            archive(size = 50),
+            currentOrderIndex = 40,
+            nowMillis = now,
+            direction = ListeningDirection.NEWEST_FIRST,
+        )
+
+        val afterFirst = archive(size = 50, downloaded = first.toDownload.map { it.toInt() }.toSet())
+        val second = DownloadPlanner(config).plan(
+            afterFirst,
+            currentOrderIndex = 40,
+            nowMillis = now,
+            direction = ListeningDirection.NEWEST_FIRST,
+        )
+
         assertThat(second.toDownload).isEmpty()
         assertThat(second.toDelete).isEmpty()
     }

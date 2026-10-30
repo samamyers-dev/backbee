@@ -36,12 +36,18 @@ class DownloadAheadWorker(
         runCatching { container.downloadRepository.reconcileWithDisk() }
             .onFailure { Log.w(TAG, "Reconciliation failed", it) }
 
-        val resumeTarget = container.playbackRepository.resumeTarget(show.id)
-        val currentOrderIndex = resumeTarget?.orderIndex ?: 0
+        val resumeTarget = container.playbackRepository.resumeTarget(show.id, show.direction)
+        val currentOrderIndex = resumeTarget?.orderIndex
+            ?: if (show.direction.isNewestFirst) container.playbackRepository.lastOrderIndex(show.id) else 0
 
         val loadedEpisodeId = container.playbackStateStore.currentLoadedEpisodeId()
 
-        val plan = container.downloadRepository.planFor(show.id, currentOrderIndex, loadedEpisodeId)
+        val plan = container.downloadRepository.planFor(
+            show.id,
+            currentOrderIndex,
+            loadedEpisodeId,
+            show.direction,
+        )
         Log.i(
             TAG,
             "show=${show.id} at=$currentOrderIndex loaded=$loadedEpisodeId fetch=${plan.toDownload.size} " +

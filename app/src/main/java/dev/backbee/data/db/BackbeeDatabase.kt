@@ -8,6 +8,7 @@ import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import dev.backbee.core.playback.ListeningDirection
 import java.io.File
 
 class Converters {
@@ -17,13 +18,20 @@ class Converters {
 
     @TypeConverter
     fun fromDownloadState(state: DownloadState?): String? = state?.name
+
+    @TypeConverter
+    fun toListeningDirection(value: String?): ListeningDirection? =
+        value?.let { runCatching { ListeningDirection.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromListeningDirection(direction: ListeningDirection?): String? = direction?.name
 }
 
 /**
  * Bump together with a Migration and a committed schema JSON. Top-level so the
  * annotation below and the restore check compare against the same number.
  */
-internal const val BACKBEE_DB_VERSION = 2
+internal const val BACKBEE_DB_VERSION = 3
 
 @Database(
     entities = [
@@ -75,10 +83,23 @@ abstract class BackbeeDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Adds shows.direction. Existing shows default to oldest-first, which is
+         * exactly how they behaved before the column existed, wherever they are
+         * in the archive.
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE shows ADD COLUMN direction TEXT NOT NULL DEFAULT 'OLDEST_FIRST'"
+                )
+            }
+        }
+
         fun build(context: Context): BackbeeDatabase =
             Room.databaseBuilder(context.applicationContext, BackbeeDatabase::class.java, NAME)
                 .addCallback(ENABLE_FOREIGN_KEYS)
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
 
         fun fileFor(context: Context): File = context.getDatabasePath(NAME)

@@ -3,6 +3,7 @@ package dev.backbee.ui.now
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.backbee.core.playback.ArchiveProgress
+import dev.backbee.core.playback.ListeningDirection
 import dev.backbee.core.playback.SmartResume
 import dev.backbee.data.db.EpisodeRow
 import dev.backbee.data.db.ShowEntity
@@ -79,9 +80,11 @@ class NowViewModel(
     private val activeShow = shows.observeActiveShow()
 
     // Follows the database rather than the player, so the Now screen stays right
-    // when an episode finishes in the car with the phone screen off.
+    // when an episode finishes in the car with the phone screen off. The whole
+    // flow restarts when the show row changes, which is what makes switching
+    // direction move Resume immediately.
     private val resumeTarget = activeShow.flatMapLatest { show ->
-        if (show == null) flowOf(null) else playback.observeResumeTarget(show.id)
+        if (show == null) flowOf(null) else playback.observeResumeTarget(show.id, show.direction)
     }
 
     /**
@@ -105,15 +108,20 @@ class NowViewModel(
     /** Whatever Now is currently about: playing, or else where you left off. */
     private val current = combine(nowPlaying, resumeTarget) { playing, leftOff -> playing ?: leftOff }
 
-    private val currentOrderIndex = current.map { it?.orderIndex ?: -1 }.distinctUntilChanged()
+    private val currentOrderIndex = current.map { it?.orderIndex }.distinctUntilChanged()
 
     // Up next follows the current episode rather than your place, because it
     // is a prediction of what auto-advance will do, and auto-advance continues
-    // from wherever the player actually is.
+    // from wherever the player actually is - in the show's direction.
     private val upNext = combine(activeShow, currentOrderIndex) { show, index -> show to index }
         .flatMapLatest { (show, index) ->
             if (show == null) flowOf(emptyList())
-            else playback.observeUpNext(show.id, index, UP_NEXT_COUNT)
+            else playback.observeUpNext(
+                showId = show.id,
+                afterOrderIndex = index ?: show.direction.startEdge,
+                limit = UP_NEXT_COUNT,
+                direction = show.direction,
+            )
         }
 
     private val progress = activeShow.flatMapLatest { show ->
@@ -123,7 +131,11 @@ class NowViewModel(
     private val downloadedAhead = combine(activeShow, currentOrderIndex) { show, index -> show to index }
         .flatMapLatest { (show, index) ->
             if (show == null) flowOf(0)
-            else playback.observeDownloadedAhead(show.id, index.coerceAtLeast(0))
+            else playback.observeDownloadedAhead(
+                showId = show.id,
+                fromOrderIndex = index ?: show.direction.startEdge.coerceAtLeast(0),
+                direction = show.direction,
+            )
         }
 
     // Year marks change only when the archive is re-ingested, so they are loaded
@@ -179,11 +191,14 @@ class NowViewModel(
                     //
                     // The strip reads "Ep 312 of 1,247", so the current episode
                     // counts as the one being worked on, not one already done.
+                    // ArchiveProgress mirrors this for a newest-first show, so
+                    // the number still counts from the end you started at.
                     currentPosition = (target?.orderIndex?.plus(1)) ?: it.totalEpisodes,
                     totalEpisodes = it.totalEpisodes,
                     remainingSeconds = it.remainingSeconds,
                     totalSeconds = it.totalSeconds,
                     speed = show?.speed ?: 1f,
+                    direction = show?.direction ?: ListeningDirection.OLDEST_FIRST,
                 )
             },
             detourFraction = detourFraction(playing, target, showProgress?.totalEpisodes ?: 0),

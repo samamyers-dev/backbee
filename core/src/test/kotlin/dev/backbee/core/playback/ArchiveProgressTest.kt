@@ -65,6 +65,46 @@ class ArchiveProgressTest {
     }
 
     @Test
+    fun `newest first counts position from the end of the archive`() {
+        // orderIndex 1246 is the newest episode: the first one a newest-first
+        // listener hears, so it has to read "Ep 1", not "Ep 1,247".
+        val first = ArchiveProgress(
+            currentPosition = 1_247,
+            totalEpisodes = 1_247,
+            remainingSeconds = 0,
+            direction = ListeningDirection.NEWEST_FIRST,
+        )
+        assertThat(first.listeningPosition).isEqualTo(1)
+        assertThat(first.percentByEpisodes).isEqualTo(0)
+        assertThat(first.summary()).isEqualTo("Ep 1 of 1,247 · 0%")
+
+        val middle = first.copy(currentPosition = 625)
+        assertThat(middle.listeningPosition).isEqualTo(623)
+        assertThat(middle.completedEpisodes).isEqualTo(622)
+
+        val last = first.copy(currentPosition = 1)
+        assertThat(last.listeningPosition).isEqualTo(1_247)
+        assertThat(last.summary()).isEqualTo("Ep 1,247 of 1,247 · 100%")
+    }
+
+    @Test
+    fun `direction mirrors the position but not the amount of audio left`() {
+        val oldest = ArchiveProgress(
+            currentPosition = 312,
+            totalEpisodes = 1_247,
+            remainingSeconds = 12_000,
+            direction = ListeningDirection.OLDEST_FIRST,
+        )
+        val newest = oldest.copy(direction = ListeningDirection.NEWEST_FIRST)
+
+        assertThat(oldest.listeningPosition).isEqualTo(312)
+        assertThat(newest.listeningPosition).isEqualTo(936)
+        assertThat(newest.percentByEpisodes).isEqualTo(75)
+        assertThat(newest.remainingSeconds).isEqualTo(oldest.remainingSeconds)
+        assertThat(newest.remainingHoursAtSpeed).isWithin(0.001).of(oldest.remainingHoursAtSpeed)
+    }
+
+    @Test
     fun `speed labels stay short`() {
         assertThat(ArchiveProgress.formatSpeed(1.0f)).isEqualTo("1")
         assertThat(ArchiveProgress.formatSpeed(1.5f)).isEqualTo("1.5")

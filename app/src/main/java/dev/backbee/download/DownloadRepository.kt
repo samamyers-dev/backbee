@@ -5,6 +5,7 @@ import dev.backbee.core.download.DownloadConfig
 import dev.backbee.core.download.DownloadPlan
 import dev.backbee.core.download.DownloadPlanner
 import dev.backbee.core.download.EpisodeSlot
+import dev.backbee.core.playback.ListeningDirection
 import dev.backbee.data.db.BackbeeDatabase
 import dev.backbee.data.db.DownloadEntity
 import dev.backbee.data.db.DownloadState
@@ -34,7 +35,12 @@ class DownloadRepository(
     suspend fun state(episodeId: Long): DownloadEntity? = downloadDao.get(episodeId)
 
     /** Builds the plan for a show without acting on it. The worker carries it out. */
-    suspend fun planFor(showId: Long, currentOrderIndex: Int, loadedEpisodeId: Long? = null): DownloadPlan {
+    suspend fun planFor(
+        showId: Long,
+        currentOrderIndex: Int,
+        loadedEpisodeId: Long? = null,
+        direction: ListeningDirection = ListeningDirection.OLDEST_FIRST,
+    ): DownloadPlan {
         val config = settings.current().let {
             DownloadConfig(
                 downloadAhead = it.downloadAhead,
@@ -57,7 +63,7 @@ class DownloadRepository(
         }
 
         return DownloadPlanner(config)
-            .plan(slots, currentOrderIndex, System.currentTimeMillis(), loadedEpisodeId)
+            .plan(slots, currentOrderIndex, System.currentTimeMillis(), loadedEpisodeId, direction)
     }
 
     /**

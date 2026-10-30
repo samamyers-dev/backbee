@@ -19,17 +19,44 @@ without one, instead of failing at configuration time.
 
 ## The shape of the thing
 
-There is one active show. Its archive, oldest-first, *is* the queue; there is no
-separate queue model to keep in sync. `episodes.order_index` is the spine, and
+There is one active show. Its archive, oldest-first, is the storage spine; the
+order episodes are listened in is a per-show *direction* laid over it. There is
+no separate queue model to keep in sync. `episodes.order_index` is the spine, and
 everything else hangs off it:
 
-- Resume = the lowest `order_index` that is not played.
-- Auto-advance = the next `order_index` that is not played. Skipping the played
-  ones keeps the queue in agreement with Resume and "Next up" — replaying an
-  episode you already finished because it happened to sit between two unplayed
-  ones is playing out of sequence, not gapless playback.
-- Download-ahead = the next N `order_index` values that are unplayed.
-- Progress = played count over total count.
+- Resume = the first unplayed `order_index` from the show's listening end.
+- Auto-advance = the next unplayed `order_index` in that direction. Skipping the
+  played ones keeps the queue in agreement with Resume and "Next up" — replaying
+  an episode you already finished because it happened to sit between two
+  unplayed ones is playing out of sequence, not gapless playback.
+- Download-ahead = the next N unplayed `order_index` values in that direction.
+- Progress = played count over total count, with "Ep n of N" counted from the
+  end the show is listened from.
+
+### Listening direction
+
+`shows.direction` is `OLDEST_FIRST` (the default, and what every existing show
+becomes on upgrade) or `NEWEST_FIRST`. It decides which way the queue walks, not
+how the archive is stored: `order_index` keeps its oldest-first meaning, nothing
+is renumbered, and switching direction cannot move a bookmark or clear a played
+flag. Resume simply resolves to the first unplayed episode from the new end.
+
+The DAO queries take a single `newestFirst` flag and reverse the walk order in
+SQL rather than keeping two copies of every query. The player's media-item order
+is the queue order, so auto-advance direction falls out of the window; Android
+Auto and the widget call the same direction-aware repository methods as the
+phone.
+
+A feed refresh still appends new episodes to the end of `order_index`. On a
+newest-first show that end is the front of the queue, so a new arrival becomes
+Resume and starts playing next. That is the definition of newest-first; the
+half-heard older episode keeps its position and is still one tap away.
+
+The Archive list is shown in listening order too. It is the queue, and a list
+that reads oldest-first while Resume and "Next up" walk the other way would
+disagree with the two screens beside it. The header says which direction is in
+force; the year bands still describe archive years, using min/max episode
+numbers so they never read backwards.
 
 ### Why order_index is never renumbered after playback starts
 
@@ -77,12 +104,13 @@ things are, what the user configured — are gathered in `DownloadRepository`.
 
 The rules it encodes:
 
-- Fill forward from the current episode, nearest first.
+- Fill in the direction of travel from the current episode, nearest first.
 - Played episodes inside the window do not consume a look-ahead slot.
 - A just-played episode is kept for the delete-after window even though it is
   now behind the current position, so a mis-tap can still get back to it.
 - Under storage pressure, give up the *furthest ahead* episode, never the next
-  one. Never evict something nearer than what you are making room for.
+  one. "Ahead" follows the show's direction: for a newest-first show the
+  sacrifice is the furthest one towards older episodes.
 
 `LocalFileIndex` mirrors the download table in memory so the player's
 `ResolvingDataSource` can swap a remote URL for a local file without touching

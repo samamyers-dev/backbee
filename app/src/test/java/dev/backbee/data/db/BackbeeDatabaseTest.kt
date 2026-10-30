@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import dev.backbee.core.playback.ListeningDirection
 import dev.backbee.data.repo.PlaybackRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -66,7 +67,7 @@ class BackbeeDatabaseTest {
 
     @Test
     fun `archive comes back oldest first with null state for untouched episodes`() = runTest {
-        val rows = db.episodeDao().observeArchive(showId).first()
+        val rows = db.episodeDao().observeArchive(showId, newestFirst = false).first()
 
         assertThat(rows).hasSize(5)
         assertThat(rows.map { it.orderIndex }).isInOrder()
@@ -78,7 +79,7 @@ class BackbeeDatabaseTest {
 
     @Test
     fun `savePosition inserts then updates without disturbing played state`() = runTest {
-        val episodeId = db.episodeDao().observeArchive(showId).first()[1].id
+        val episodeId = db.episodeDao().observeArchive(showId, newestFirst = false).first()[1].id
         val positions = db.positionDao()
 
         positions.savePosition(episodeId, positionSeconds = 30, updatedAt = 100)
@@ -93,7 +94,7 @@ class BackbeeDatabaseTest {
 
     @Test
     fun `markPlayed and markUnplayed round trip`() = runTest {
-        val episodeId = db.episodeDao().observeArchive(showId).first()[0].id
+        val episodeId = db.episodeDao().observeArchive(showId, newestFirst = false).first()[0].id
         val positions = db.positionDao()
 
         positions.markPlayed(episodeId, positionSeconds = 600, at = 500)
@@ -107,12 +108,12 @@ class BackbeeDatabaseTest {
 
     @Test
     fun `next unplayed skips finished episodes and lands on the bookmark`() = runTest {
-        val rows = db.episodeDao().observeArchive(showId).first()
+        val rows = db.episodeDao().observeArchive(showId, newestFirst = false).first()
         db.positionDao().markPlayed(rows[0].id, 600, 1)
         db.positionDao().markPlayed(rows[1].id, 600, 2)
         db.positionDao().savePosition(rows[2].id, 120, 3)
 
-        val target = db.episodeDao().nextUnplayed(showId)
+        val target = db.episodeDao().nextUnplayed(showId, newestFirst = false)
 
         assertThat(target?.id).isEqualTo(rows[2].id)
         assertThat(target?.positionSeconds).isEqualTo(120)
@@ -137,12 +138,12 @@ class BackbeeDatabaseTest {
             )
         )
 
-        assertThat(db.episodeDao().nextUnplayed(bare)?.title).isEqualTo("Has audio")
+        assertThat(db.episodeDao().nextUnplayed(bare, newestFirst = false)?.title).isEqualTo("Has audio")
     }
 
     @Test
     fun `progress aggregate counts played episodes and time still ahead`() = runTest {
-        val rows = db.episodeDao().observeArchive(showId).first()
+        val rows = db.episodeDao().observeArchive(showId, newestFirst = false).first()
         db.positionDao().markPlayed(rows[0].id, 600, 1)
         db.positionDao().markPlayed(rows[1].id, 600, 2)
         db.positionDao().savePosition(rows[2].id, 100, 3)
@@ -160,7 +161,7 @@ class BackbeeDatabaseTest {
 
     @Test
     fun `a position past the episode duration cannot push remaining time negative`() = runTest {
-        val rows = db.episodeDao().observeArchive(showId).first()
+        val rows = db.episodeDao().observeArchive(showId, newestFirst = false).first()
         // Durations from feeds are frequently wrong; the player can legitimately
         // report a position beyond one.
         db.positionDao().savePosition(rows[0].id, positionSeconds = 9_000, updatedAt = 1)
@@ -185,7 +186,7 @@ class BackbeeDatabaseTest {
 
     @Test
     fun `local file index only reports finished downloads and carries the remote url`() = runTest {
-        val rows = db.episodeDao().observeArchive(showId).first()
+        val rows = db.episodeDao().observeArchive(showId, newestFirst = false).first()
         db.downloadDao().upsert(
             DownloadEntity(rows[0].id, DownloadState.DONE, "/data/0.mp3", 100, 100, 1)
         )
@@ -202,7 +203,7 @@ class BackbeeDatabaseTest {
 
     @Test
     fun `deleting a show cascades to its episodes and their state`() = runTest {
-        val rows = db.episodeDao().observeArchive(showId).first()
+        val rows = db.episodeDao().observeArchive(showId, newestFirst = false).first()
         db.positionDao().savePosition(rows[0].id, 10, 1)
         db.markDao().setStarred(rows[0].id, true, 1)
 
@@ -214,7 +215,7 @@ class BackbeeDatabaseTest {
 
     @Test
     fun `progress aggregate reports lastTouchedAt and progressCount includes partial listens`() = runTest {
-        val rows = db.episodeDao().observeArchive(showId).first()
+        val rows = db.episodeDao().observeArchive(showId, newestFirst = false).first()
         assertThat(db.positionDao().progressCount(showId)).isEqualTo(0)
 
         db.positionDao().savePosition(rows[0].id, positionSeconds = 45, updatedAt = 1_234L)
@@ -257,7 +258,73 @@ class BackbeeDatabaseTest {
             )
         )
         val repo = PlaybackRepository(db)
-        val hits = repo.search(showId, "100%").first()
+        val hits = repo.search(showId, "100%", ListeningDirection.OLDEST_FIRST).first()
         assertThat(hits.map { it.title }).containsExactly("100% Genuine")
+    }
+
+    // -- Listening direction -------------------------------------------------
+
+    @Test
+    fun `newest first archive reads from the newest episode down`() = runTest {
+        val rows = db.episodeDao().observeArchive(showId, newestFirst = true).first()
+
+        assertThat(rows.map { it.orderIndex }).containsExactly(4, 3, 2, 1, 0).inOrder()
+    }
+
+    @Test
+    fun `newest first resumes at the newest unplayed and walks towards older episodes`() = runTest {
+        val ascending = db.episodeDao().observeArchive(showId, newestFirst = false).first()
+        // The two newest episodes are already heard; the newest unplayed is index 2.
+        db.positionDao().markPlayed(ascending[4].id, 600, 1)
+        db.positionDao().markPlayed(ascending[3].id, 600, 2)
+
+        val target = db.episodeDao().nextUnplayed(showId, newestFirst = true)
+        assertThat(target?.orderIndex).isEqualTo(2)
+
+        val after = db.episodeDao().unplayedAfter(showId, 2, 10, newestFirst = true)
+        assertThat(after.map { it.orderIndex }).containsExactly(1, 0).inOrder()
+        assertThat(after.map { it.orderIndex }).doesNotContain(2)
+    }
+
+    @Test
+    fun `up next and downloaded-ahead follow the same direction as resume`() = runTest {
+        val ascending = db.episodeDao().observeArchive(showId, newestFirst = false).first()
+        db.downloadDao().upsert(
+            DownloadEntity(ascending[4].id, DownloadState.DONE, "/data/4.mp3", 100, 100, 1)
+        )
+
+        val upNext = db.episodeDao().observeUpNext(showId, afterOrderIndex = 3, limit = 3, newestFirst = true).first()
+        assertThat(upNext.map { it.orderIndex }).containsExactly(2, 1, 0).inOrder()
+
+        // The newest episode is on disk. From the middle, an oldest-first walk
+        // still has it ahead; a newest-first walk has already passed it.
+        val newestAhead = db.episodeDao().observeDownloadedAhead(showId, fromOrderIndex = 2, newestFirst = true).first()
+        val oldestAhead = db.episodeDao().observeDownloadedAhead(showId, fromOrderIndex = 2, newestFirst = false).first()
+        assertThat(newestAhead).isEqualTo(0)
+        assertThat(oldestAhead).isEqualTo(1)
+    }
+
+    @Test
+    fun `switching direction moves resume but never touches a saved position or played flag`() = runTest {
+        val ascending = db.episodeDao().observeArchive(showId, newestFirst = false).first()
+        val halfHeard = ascending[2]
+        val finished = ascending[4]
+        db.positionDao().savePosition(halfHeard.id, positionSeconds = 123, updatedAt = 10)
+        db.positionDao().markPlayed(finished.id, 600, 11)
+
+        assertThat(db.episodeDao().nextUnplayed(showId, newestFirst = false)?.id).isEqualTo(ascending[0].id)
+
+        db.showDao().setDirection(showId, ListeningDirection.NEWEST_FIRST)
+
+        assertThat(db.showDao().getById(showId)?.direction).isEqualTo(ListeningDirection.NEWEST_FIRST)
+        // Newest unplayed is index 3: index 4 is finished.
+        assertThat(db.episodeDao().nextUnplayed(showId, newestFirst = true)?.id).isEqualTo(ascending[3].id)
+        assertThat(db.positionDao().get(halfHeard.id)?.positionSeconds).isEqualTo(123)
+        assertThat(db.positionDao().get(finished.id)?.played).isTrue()
+    }
+
+    @Test
+    fun `a show created without a direction defaults to oldest first`() = runTest {
+        assertThat(db.showDao().getById(showId)?.direction).isEqualTo(ListeningDirection.OLDEST_FIRST)
     }
 }

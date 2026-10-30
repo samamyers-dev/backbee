@@ -1,5 +1,7 @@
 package dev.backbee.core.download
 
+import dev.backbee.core.playback.ListeningDirection
+
 /**
  * What the planner needs to know about one episode. Deliberately a flat snapshot
  * so the planner is a pure function of state and can be tested exhaustively.
@@ -45,9 +47,14 @@ data class DownloadPlan(
  * Decides what to fetch and what to throw away.
  *
  * The rule the user experiences is "the next N episodes are always ready and I
- * never think about storage". Everything here serves that: fill forward from the
- * current position, drop what is behind, and when the cap bites, give up the
- * furthest-ahead episode rather than the one about to play.
+ * never think about storage". Everything here serves that: fill in the direction
+ * of travel from the current position, drop what is behind, and when the cap
+ * bites, give up the furthest-ahead episode rather than the one about to play.
+ *
+ * "Ahead" is relative to [ListeningDirection], not to `order_index`. A
+ * newest-first show walks towards lower indices, so its look-ahead is a run of
+ * episodes below the current one and the episode to sacrifice under pressure is
+ * the one furthest *back* in archive terms.
  */
 class DownloadPlanner(private val config: DownloadConfig) {
 
@@ -63,16 +70,25 @@ class DownloadPlanner(private val config: DownloadConfig) {
         currentOrderIndex: Int,
         nowMillis: Long,
         loadedEpisodeId: Long? = null,
+        direction: ListeningDirection = ListeningDirection.OLDEST_FIRST,
     ): DownloadPlan {
         val ordered = episodes.sortedBy { it.orderIndex }
+        val travel = if (direction.isNewestFirst) -1 else 1
         val reasons = mutableMapOf<Long, String>()
         val toDelete = linkedSetOf<Long>()
+
+        // How far a slot is ahead of a reference point in the direction of
+        // travel. Positive means later in the listener's queue.
+        fun aheadDistance(from: Int, to: Int): Int = (to - from) * travel
 
         // The window is the current episode plus the next N unplayed ones. Played
         // episodes inside the range do not consume a slot: skipping five you have
         // already heard should not shrink how far ahead you are buffered.
-        val window = ordered
-            .filter { it.orderIndex >= currentOrderIndex && !it.played && it.hasEnclosure }
+        val candidates = ordered
+            .filter { aheadDistance(currentOrderIndex, it.orderIndex) >= 0 }
+            .sortedBy { aheadDistance(currentOrderIndex, it.orderIndex) }
+        val window = candidates
+            .filter { !it.played && it.hasEnclosure }
             .take(config.downloadAhead + 1)
         val windowIds = window.map { it.episodeId }.toSet()
 
@@ -99,7 +115,7 @@ class DownloadPlanner(private val config: DownloadConfig) {
                 }
             } else if (slot.episodeId !in windowIds) {
                 toDelete += slot.episodeId
-                reasons[slot.episodeId] = if (slot.orderIndex < currentOrderIndex) {
+                reasons[slot.episodeId] = if (aheadDistance(currentOrderIndex, slot.orderIndex) < 0) {
                     "behind the current position"
                 } else {
                     "beyond the ${config.downloadAhead}-episode look-ahead"
@@ -125,9 +141,10 @@ class DownloadPlanner(private val config: DownloadConfig) {
                 val reclaimable = ordered
                     .filter {
                         it.downloaded && !it.keepAfterPlaying && it.episodeId != loadedEpisodeId &&
-                            it.episodeId !in toDelete && it.orderIndex > slot.orderIndex
+                            it.episodeId !in toDelete &&
+                            aheadDistance(slot.orderIndex, it.orderIndex) > 0
                     }
-                    .sortedByDescending { it.orderIndex }
+                    .sortedByDescending { aheadDistance(slot.orderIndex, it.orderIndex) }
                 for (victim in reclaimable) {
                     if (heldBytes + size <= config.storageCapBytes) break
                     toDelete += victim.episodeId
@@ -140,7 +157,7 @@ class DownloadPlanner(private val config: DownloadConfig) {
                 }
             }
             toDownload += slot.episodeId
-            reasons[slot.episodeId] = "look-ahead slot ${slot.orderIndex - currentOrderIndex}"
+            reasons[slot.episodeId] = "look-ahead slot ${aheadDistance(currentOrderIndex, slot.orderIndex)}"
             heldBytes += size
         }
 

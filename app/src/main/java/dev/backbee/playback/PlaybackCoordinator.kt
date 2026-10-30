@@ -78,7 +78,7 @@ class PlaybackCoordinator(
      */
     suspend fun planResume(): QueuePlan? {
         val show = shows.activeShow() ?: return null
-        val target = playback.resumeTarget(show.id) ?: run {
+        val target = playback.resumeTarget(show.id, show.direction) ?: run {
             Log.i(TAG, "Nothing left to play in ${show.title}")
             onArchiveCompleted(show.id)
             return null
@@ -101,7 +101,8 @@ class PlaybackCoordinator(
         // The target itself heads the queue whatever its state - re-listening to
         // a played episode is allowed - but everything after it is unplayed
         // only, so auto-advance never replays something already finished.
-        val window = listOf(target) + playback.unplayedAfter(show.id, target.orderIndex, WINDOW_SIZE - 1)
+        val window = listOf(target) +
+            playback.unplayedAfter(show.id, target.orderIndex, WINDOW_SIZE - 1, show.direction)
 
         // Per-show speed and the skip increments are player properties rather
         // than queue contents, so they are safe to apply here either way.
@@ -225,7 +226,7 @@ class PlaybackCoordinator(
         if (count - index > EXTEND_THRESHOLD) return
 
         val lastOrderIndex = MediaItems.orderIndexOf(lastItem) ?: return
-        val more = playback.unplayedAfter(show.id, lastOrderIndex, WINDOW_SIZE)
+        val more = playback.unplayedAfter(show.id, lastOrderIndex, WINDOW_SIZE, show.direction)
         if (more.isEmpty()) return
 
         val items = more.map { MediaItems.forEpisode(it, show) }

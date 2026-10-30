@@ -39,7 +39,8 @@ data class DownloadsUiState(
 class DownloadsViewModel(private val container: AppContainer) : ViewModel() {
 
     private val rows = container.showRepository.observeActiveShow().flatMapLatest { show ->
-        if (show == null) flowOf(emptyList()) else container.playbackRepository.observeArchive(show.id)
+        if (show == null) flowOf(emptyList())
+        else container.playbackRepository.observeArchive(show.id, show.direction)
     }
 
     val state: StateFlow<DownloadsUiState> = combine(

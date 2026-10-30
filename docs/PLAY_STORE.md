@@ -37,8 +37,9 @@ exactly where you left off - in the car, on a walk, in the kitchen - until
 one day you finish.
 
 BUILT FOR THE BACKLOG
-• Oldest-first, always. The archive is the queue; there is nothing to
-  manage.
+• One direction per show, oldest-first by default. Switch a news or
+  interview show to newest-first and Resume starts at the latest episode.
+  The archive is the queue; there is nothing to manage.
 • Your place is sacred. Position is written every few seconds and the
   moment the car turns off or the headphones drop - never "back to the
   start" after a Bluetooth hiccup.

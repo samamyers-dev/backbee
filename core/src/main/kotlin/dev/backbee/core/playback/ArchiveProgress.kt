@@ -11,9 +11,14 @@ import kotlin.math.roundToLong
  * The percentage counts episodes, matching the two numbers next to it, so the
  * line never reads as though it contradicts itself. [percentByTime] is available
  * separately for anywhere a duration-weighted figure is more honest.
+ *
+ * Positions are stored oldest-first, but a newest-first show is listened from
+ * the other end. [currentPosition] stays the raw archive position; everything
+ * this class reports is counted from the end the show is being listened from,
+ * so a newest-first listener still sees "Ep 1 of N" on their first episode.
  */
 data class ArchiveProgress(
-    /** 1-based position of the active episode within the archive. */
+    /** 1-based position of the active episode within the archive, oldest-first. */
     val currentPosition: Int,
     val totalEpisodes: Int,
     /** Unplayed audio still ahead, at 1x, in seconds. */
@@ -21,8 +26,21 @@ data class ArchiveProgress(
     /** Total audio in the archive at 1x, in seconds. Zero when unknown. */
     val totalSeconds: Long = 0,
     val speed: Float = 1.0f,
+    val direction: ListeningDirection = ListeningDirection.OLDEST_FIRST,
 ) {
-    val completedEpisodes: Int get() = (currentPosition - 1).coerceIn(0, totalEpisodes)
+    /**
+     * 1-based position in the order this show is actually being listened to:
+     * unchanged for oldest-first, mirrored for newest-first.
+     */
+    val listeningPosition: Int
+        get() = when {
+            totalEpisodes <= 0 -> 1
+            direction == ListeningDirection.NEWEST_FIRST ->
+                (totalEpisodes - currentPosition + 1).coerceIn(1, totalEpisodes)
+            else -> currentPosition
+        }
+
+    val completedEpisodes: Int get() = (listeningPosition - 1).coerceIn(0, totalEpisodes)
 
     val percentByEpisodes: Int
         get() = if (totalEpisodes <= 0) 0 else (completedEpisodes * 100.0 / totalEpisodes).roundToInt().coerceIn(0, 100)
@@ -39,7 +57,7 @@ data class ArchiveProgress(
         }
 
     fun summary(): String = buildString {
-        append("Ep ").append(group(currentPosition))
+        append("Ep ").append(group(listeningPosition))
         append(" of ").append(group(totalEpisodes))
         append(" · ").append(percentByEpisodes).append('%')
         if (remainingSeconds > 0) {

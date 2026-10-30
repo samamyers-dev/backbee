@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import dev.backbee.core.playback.ListeningDirection
 
 @Entity(
     tableName = "shows",
@@ -20,6 +21,13 @@ data class ShowEntity(
     val speed: Float = 1.0f,
     @ColumnInfo(name = "skip_intro_s") val skipIntroSeconds: Int = 0,
     @ColumnInfo(name = "skip_outro_s") val skipOutroSeconds: Int = 0,
+    /**
+     * Which end of the archive the queue starts from. `order_index` stays
+     * oldest-first whatever this says; direction only chooses the walk order,
+     * so changing it never touches a position or a played flag.
+     */
+    @ColumnInfo(defaultValue = "'OLDEST_FIRST'")
+    val direction: ListeningDirection = ListeningDirection.OLDEST_FIRST,
     @ColumnInfo(name = "added_at") val addedAt: Long,
     @ColumnInfo(name = "completed_at") val completedAt: Long? = null,
     /** Last successful feed refresh, so the daily check can be cheap and quiet. */

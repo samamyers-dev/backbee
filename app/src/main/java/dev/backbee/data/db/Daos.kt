@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
+import dev.backbee.core.playback.ListeningDirection
 import kotlinx.coroutines.flow.Flow
 
 private const val EPISODE_COLUMNS = """
@@ -36,6 +37,16 @@ private const val EPISODE_JOINS = """
     LEFT JOIN marks m ON m.episode_id = e.id
     LEFT JOIN downloads d ON d.episode_id = e.id
 """
+
+/**
+ * Walking order along the archive spine. One query pair serves both directions
+ * rather than two copies of every query drifting apart: `newestFirst` reverses
+ * the index order and flips the "after" comparison below.
+ */
+private const val ORDER_INDEX_WALK = "CASE WHEN :newestFirst = 1 THEN -e.order_index ELSE e.order_index END"
+
+/** True when row `e` comes after `:afterOrderIndex` in the listener's queue. */
+private const val AFTER_ORDER_INDEX = "(CASE WHEN :newestFirst = 1 THEN e.order_index < :afterOrderIndex ELSE e.order_index > :afterOrderIndex END)"
 
 @Dao
 interface ShowDao {
@@ -101,6 +112,9 @@ interface ShowDao {
     @Query("UPDATE shows SET skip_outro_s = :seconds WHERE id = :id")
     suspend fun setSkipOutroSeconds(id: Long, seconds: Int)
 
+    @Query("UPDATE shows SET direction = :direction WHERE id = :id")
+    suspend fun setDirection(id: Long, direction: ListeningDirection)
+
     @Query(
         """
         SELECT :showId AS show_id,
@@ -140,8 +154,8 @@ interface ShowDao {
 @Dao
 interface EpisodeDao {
 
-    @Query("SELECT $EPISODE_COLUMNS $EPISODE_JOINS WHERE e.show_id = :showId ORDER BY e.order_index ASC")
-    fun observeArchive(showId: Long): Flow<List<EpisodeRow>>
+    @Query("SELECT $EPISODE_COLUMNS $EPISODE_JOINS WHERE e.show_id = :showId ORDER BY $ORDER_INDEX_WALK ASC")
+    fun observeArchive(showId: Long, newestFirst: Boolean): Flow<List<EpisodeRow>>
 
     @Query("SELECT $EPISODE_COLUMNS $EPISODE_JOINS WHERE e.id = :episodeId")
     fun observeRow(episodeId: Long): Flow<EpisodeRow?>
@@ -150,9 +164,10 @@ interface EpisodeDao {
     suspend fun getRow(episodeId: Long): EpisodeRow?
 
     /**
-     * Where "Resume" points: the earliest episode that has not been finished.
-     * An episode part-way through is by definition the earliest unplayed one, so
-     * this covers both "continue" and "start the next one".
+     * Where "Resume" points: the first episode that has not been finished in
+     * the direction this show is being listened. An episode part-way through is
+     * by definition the first unplayed one from that end, so this covers both
+     * "continue" and "start the next one".
      */
     @Query(
         """
@@ -160,11 +175,11 @@ interface EpisodeDao {
         WHERE e.show_id = :showId
           AND (p.played IS NULL OR p.played = 0)
           AND e.enclosure_url IS NOT NULL
-        ORDER BY e.order_index ASC
+        ORDER BY $ORDER_INDEX_WALK ASC
         LIMIT 1
         """
     )
-    suspend fun nextUnplayed(showId: Long): EpisodeRow?
+    suspend fun nextUnplayed(showId: Long, newestFirst: Boolean): EpisodeRow?
 
     /**
      * The observable twin of [nextUnplayed]. The Now screen follows this rather
@@ -177,11 +192,11 @@ interface EpisodeDao {
         WHERE e.show_id = :showId
           AND (p.played IS NULL OR p.played = 0)
           AND e.enclosure_url IS NOT NULL
-        ORDER BY e.order_index ASC
+        ORDER BY $ORDER_INDEX_WALK ASC
         LIMIT 1
         """
     )
-    fun observeNextUnplayed(showId: Long): Flow<EpisodeRow?>
+    fun observeNextUnplayed(showId: Long, newestFirst: Boolean): Flow<EpisodeRow?>
 
     /**
      * The player's queue window: what auto-advance will play after a point.
@@ -193,27 +208,27 @@ interface EpisodeDao {
         """
         SELECT $EPISODE_COLUMNS $EPISODE_JOINS
         WHERE e.show_id = :showId
-          AND e.order_index > :afterOrderIndex
+          AND $AFTER_ORDER_INDEX
           AND (p.played IS NULL OR p.played = 0)
           AND e.enclosure_url IS NOT NULL
-        ORDER BY e.order_index ASC
+        ORDER BY $ORDER_INDEX_WALK ASC
         LIMIT :limit
         """
     )
-    suspend fun unplayedAfter(showId: Long, afterOrderIndex: Int, limit: Int): List<EpisodeRow>
+    suspend fun unplayedAfter(showId: Long, afterOrderIndex: Int, limit: Int, newestFirst: Boolean): List<EpisodeRow>
 
     @Query(
         """
         SELECT $EPISODE_COLUMNS $EPISODE_JOINS
         WHERE e.show_id = :showId
-          AND e.order_index > :afterOrderIndex
+          AND $AFTER_ORDER_INDEX
           AND (p.played IS NULL OR p.played = 0)
           AND e.enclosure_url IS NOT NULL
-        ORDER BY e.order_index ASC
+        ORDER BY $ORDER_INDEX_WALK ASC
         LIMIT :limit
         """
     )
-    fun observeUpNext(showId: Long, afterOrderIndex: Int, limit: Int): Flow<List<EpisodeRow>>
+    fun observeUpNext(showId: Long, afterOrderIndex: Int, limit: Int, newestFirst: Boolean): Flow<List<EpisodeRow>>
 
     @Query(
         """
@@ -239,11 +254,11 @@ interface EpisodeDao {
         SELECT $EPISODE_COLUMNS $EPISODE_JOINS
         WHERE e.show_id = :showId
           AND (e.title LIKE '%' || :query || '%' ESCAPE '\' OR e.description LIKE '%' || :query || '%' ESCAPE '\')
-        ORDER BY e.order_index ASC
+        ORDER BY $ORDER_INDEX_WALK ASC
         LIMIT :limit
         """
     )
-    fun search(showId: Long, query: String, limit: Int): Flow<List<EpisodeRow>>
+    fun search(showId: Long, query: String, limit: Int, newestFirst: Boolean): Flow<List<EpisodeRow>>
 
     @Query("SELECT description FROM episodes WHERE id = :episodeId")
     suspend fun description(episodeId: Long): String?
@@ -301,19 +316,19 @@ interface EpisodeDao {
     )
     suspend fun yearMarks(showId: Long): List<YearMarkRow>
 
-    /** Unplayed episodes at or after where you left off that are already on disk. */
+    /** Unplayed episodes ahead of where you left off that are already on disk. */
     @Query(
         """
         SELECT COUNT(*) FROM episodes e
         LEFT JOIN positions p ON p.episode_id = e.id
         JOIN downloads d ON d.episode_id = e.id
         WHERE e.show_id = :showId
-          AND e.order_index >= :fromOrderIndex
+          AND (CASE WHEN :newestFirst = 1 THEN e.order_index <= :fromOrderIndex ELSE e.order_index >= :fromOrderIndex END)
           AND (p.played IS NULL OR p.played = 0)
           AND d.state = 'DONE' AND d.file_path IS NOT NULL
         """
     )
-    fun observeDownloadedAhead(showId: Long, fromOrderIndex: Int): Flow<Int>
+    fun observeDownloadedAhead(showId: Long, fromOrderIndex: Int, newestFirst: Boolean): Flow<Int>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(episodes: List<EpisodeEntity>): List<Long>

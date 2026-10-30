@@ -320,6 +320,10 @@ fun EpisodeDetailScreen(
  * single tap puts them back - including the ones that were part-way through,
  * which is why the undo restores saved positions rather than just clearing the
  * played flag.
+ *
+ * The wording is older/newer, not before/after: in a newest-first show "before"
+ * an episode is farther ahead in the queue, and a control that sounds like it
+ * moves backwards when it does not is worse than no control.
  */
 @Composable
 private fun BulkSection(
@@ -368,19 +372,19 @@ private fun BulkSection(
             onClick = { onOpen(BulkScope.BEFORE) },
             modifier = Modifier.weight(1f),
         ) {
-            Label("← All before", style = BackbeeType.bodySmall, color = colors.textPrimary)
+            Label("← All older", style = BackbeeType.bodySmall, color = colors.textPrimary)
         }
         CarbonOutlineButton(
             onClick = { onOpen(BulkScope.AFTER) },
             modifier = Modifier.weight(1f),
         ) {
-            Label("All after →", style = BackbeeType.bodySmall, color = colors.textPrimary)
+            Label("All newer →", style = BackbeeType.bodySmall, color = colors.textPrimary)
         }
     }
 
     val scope = bulk.scope ?: return
     val summary = bulk.summary ?: return
-    val side = if (scope == BulkScope.BEFORE) "Before" else "After"
+    val side = if (scope == BulkScope.BEFORE) "older than" else "newer than"
 
     Spacer(Modifier.height(Dimens.space3))
 

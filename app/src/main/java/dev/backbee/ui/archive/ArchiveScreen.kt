@@ -46,7 +46,9 @@ import dev.backbee.ui.theme.backbeeColors
 import kotlinx.coroutines.launch
 
 /**
- * The spine of the app: every episode, oldest first, exactly as it will play.
+ * The spine of the app: every episode in listening order, exactly as it will
+ * play. Oldest-first shows read top-down from the oldest episode; a newest-first
+ * show is flipped so the list never disagrees with Resume or "Next up".
  *
  * A 1,500-row list needs three ways in - scrub by year, jump to a number,
  * search the text - because scrolling to 2014 by hand is not a thing anyone
@@ -82,7 +84,11 @@ fun ArchiveScreen(
     Column(modifier.fillMaxSize().background(colors.bgPage)) {
         Column(Modifier.padding(horizontal = Dimens.gutter, vertical = Dimens.space3)) {
             Label(state.show?.title ?: "Archive", color = colors.textPrimary)
-            Text("Oldest first", style = BackbeeType.labelSmall, color = colors.textMuted)
+            Text(
+                text = (state.show?.direction?.label ?: "Oldest first") + " · this is the listening order",
+                style = BackbeeType.labelSmall,
+                color = colors.textMuted,
+            )
 
             Row(
                 Modifier.fillMaxWidth().padding(top = Dimens.space3),

@@ -65,7 +65,7 @@ class BulkMarkTest {
                 )
             }
         )
-        episodeIds = db.episodeDao().observeArchive(showId).first().map { it.id }
+        episodeIds = db.episodeDao().observeArchive(showId, newestFirst = false).first().map { it.id }
     }
 
     @After
@@ -73,7 +73,7 @@ class BulkMarkTest {
         if (::db.isInitialized) db.close()
     }
 
-    private suspend fun rows() = db.episodeDao().observeArchive(showId).first()
+    private suspend fun rows() = db.episodeDao().observeArchive(showId, newestFirst = false).first()
 
     @Test
     fun `marking everything before leaves the anchor and everything after alone`() = runTest {

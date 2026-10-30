@@ -1,5 +1,6 @@
 package dev.backbee.data.repo
 
+import dev.backbee.core.playback.ListeningDirection
 import dev.backbee.data.db.BackbeeDatabase
 import dev.backbee.data.db.EpisodeRow
 import dev.backbee.data.db.PositionEntity
@@ -18,40 +19,57 @@ class PlaybackRepository(private val db: BackbeeDatabase) {
     private val markDao = db.markDao()
     private val showDao = db.showDao()
 
-    fun observeArchive(showId: Long): Flow<List<EpisodeRow>> = episodeDao.observeArchive(showId)
+    fun observeArchive(showId: Long, direction: ListeningDirection): Flow<List<EpisodeRow>> =
+        episodeDao.observeArchive(showId, direction.isNewestFirst)
 
     fun observeRow(episodeId: Long): Flow<EpisodeRow?> = episodeDao.observeRow(episodeId)
 
-    fun observeUpNext(showId: Long, afterOrderIndex: Int, limit: Int = 3): Flow<List<EpisodeRow>> =
-        episodeDao.observeUpNext(showId, afterOrderIndex, limit)
+    fun observeUpNext(
+        showId: Long,
+        afterOrderIndex: Int,
+        limit: Int = 3,
+        direction: ListeningDirection,
+    ): Flow<List<EpisodeRow>> =
+        episodeDao.observeUpNext(showId, afterOrderIndex, limit, direction.isNewestFirst)
 
     fun observeStarred(showId: Long): Flow<List<EpisodeRow>> = episodeDao.observeStarred(showId)
 
-    fun search(showId: Long, query: String): Flow<List<EpisodeRow>> {
+    fun search(showId: Long, query: String, direction: ListeningDirection): Flow<List<EpisodeRow>> {
         val escaped = query
             .replace("\\", "\\\\")
             .replace("%", "\\%")
             .replace("_", "\\_")
-        return episodeDao.search(showId, escaped, SEARCH_RESULT_LIMIT)
+        return episodeDao.search(showId, escaped, SEARCH_RESULT_LIMIT, direction.isNewestFirst)
     }
 
     suspend fun getRow(episodeId: Long): EpisodeRow? = episodeDao.getRow(episodeId)
 
-    /** Where Resume points: the earliest episode not yet finished. */
-    suspend fun resumeTarget(showId: Long): EpisodeRow? = episodeDao.nextUnplayed(showId)
+    /** Where Resume points: the first episode not yet finished from the show's listening end. */
+    suspend fun resumeTarget(showId: Long, direction: ListeningDirection): EpisodeRow? =
+        episodeDao.nextUnplayed(showId, direction.isNewestFirst)
 
-    fun observeResumeTarget(showId: Long): Flow<EpisodeRow?> = episodeDao.observeNextUnplayed(showId)
+    fun observeResumeTarget(showId: Long, direction: ListeningDirection): Flow<EpisodeRow?> =
+        episodeDao.observeNextUnplayed(showId, direction.isNewestFirst)
 
     suspend fun yearMarks(showId: Long) = episodeDao.yearMarks(showId)
 
-    fun observeDownloadedAhead(showId: Long, fromOrderIndex: Int): Flow<Int> =
-        episodeDao.observeDownloadedAhead(showId, fromOrderIndex)
+    fun observeDownloadedAhead(
+        showId: Long,
+        fromOrderIndex: Int,
+        direction: ListeningDirection,
+    ): Flow<Int> =
+        episodeDao.observeDownloadedAhead(showId, fromOrderIndex, direction.isNewestFirst)
 
     suspend fun episodeCount(showId: Long): Int = episodeDao.count(showId)
 
-    /** The auto-advance queue after a point: unplayed only, in archive order. */
-    suspend fun unplayedAfter(showId: Long, afterOrderIndex: Int, limit: Int): List<EpisodeRow> =
-        episodeDao.unplayedAfter(showId, afterOrderIndex, limit)
+    /** The auto-advance queue after a point: unplayed only, in listening order. */
+    suspend fun unplayedAfter(
+        showId: Long,
+        afterOrderIndex: Int,
+        limit: Int,
+        direction: ListeningDirection,
+    ): List<EpisodeRow> =
+        episodeDao.unplayedAfter(showId, afterOrderIndex, limit, direction.isNewestFirst)
 
     suspend fun starredEpisodes(showId: Long, limit: Int = 100): List<EpisodeRow> =
         episodeDao.starred(showId, limit)

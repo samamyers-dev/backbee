@@ -49,11 +49,20 @@ class BackbeeWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val container = (context.applicationContext as BackbeeApp).container
         val show = container.showRepository.activeShow()
-        val target = show?.let { container.playbackRepository.resumeTarget(it.id) }
+        val target = show?.let { container.playbackRepository.resumeTarget(it.id, it.direction) }
         val palette = container.settingsStore.current().colorPalette
 
+        val total = show?.let { container.playbackRepository.episodeCount(it.id) } ?: 0
+        val number = target?.let { row ->
+            row.episodeNumber ?: if (show?.direction?.isNewestFirst == true && total > 0) {
+                (total - row.orderIndex).coerceAtLeast(1)
+            } else {
+                row.orderIndex + 1
+            }
+        }
+
         val title = target?.title ?: show?.title ?: "Nothing active"
-        val subtitle = target?.let { "Ep ${it.episodeNumber ?: (it.orderIndex + 1)}" } ?: "Add a show"
+        val subtitle = number?.let { "Ep $it" } ?: "Add a show"
 
         provideContent {
             WidgetBody(title = title, subtitle = subtitle, palette = palette)

@@ -3,6 +3,7 @@ package dev.backbee.ui.settings
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.backbee.core.playback.ListeningDirection
 import dev.backbee.core.playback.ResumeTier
 import dev.backbee.data.db.ShowEntity
 import dev.backbee.data.prefs.DiagnosticsSnapshot
@@ -72,6 +73,20 @@ class SettingsViewModel(
         val show = state.value.activeShow ?: return
         val clamped = seconds.coerceIn(0, 600)
         viewModelScope.launch { container.showRepository.setSkipOutroSeconds(show.id, clamped) }
+    }
+
+    /**
+     * Flips the listening direction. Resume is derived from the show row, so it
+     * moves to the first unplayed episode from the new end on its own; saved
+     * positions and played flags are not touched. The download window does have
+     * to be re-planned, because "ahead" just changed ends.
+     */
+    fun setDirection(direction: ListeningDirection) {
+        val show = state.value.activeShow ?: return
+        viewModelScope.launch {
+            container.showRepository.setDirection(show.id, direction)
+            rescheduleDownloads()
+        }
     }
 
     // -- Global -------------------------------------------------------------

@@ -6,6 +6,7 @@ import dev.backbee.core.feed.ArchiveFetcher
 import dev.backbee.core.feed.ArchiveProbe
 import dev.backbee.core.feed.PagedArchive
 import dev.backbee.core.feed.ParsedEpisode
+import dev.backbee.core.playback.ListeningDirection
 import dev.backbee.data.db.BackbeeDatabase
 import dev.backbee.data.db.EpisodeEntity
 import dev.backbee.data.db.ShowEntity
@@ -59,6 +60,13 @@ class ShowRepository(
     suspend fun setSkipIntroSeconds(showId: Long, seconds: Int) = showDao.setSkipIntroSeconds(showId, seconds)
 
     suspend fun setSkipOutroSeconds(showId: Long, seconds: Int) = showDao.setSkipOutroSeconds(showId, seconds)
+
+    /**
+     * Flips which end of the archive the queue walks from. Nothing about a
+     * position or a played flag is touched: `order_index` keeps its meaning, and
+     * Resume simply resolves to the first unplayed episode from the new end.
+     */
+    suspend fun setDirection(showId: Long, direction: ListeningDirection) = showDao.setDirection(showId, direction)
 
     suspend fun deleteShow(showId: Long) = showDao.delete(showId)
 

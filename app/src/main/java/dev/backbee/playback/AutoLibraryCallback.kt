@@ -74,14 +74,17 @@ class AutoLibraryCallback(
             )
 
             RESUME, RECENT -> listOfNotNull(
-                playback.resumeTarget(show.id)?.let { MediaItems.forEpisode(it, show) }
+                playback.resumeTarget(show.id, show.direction)?.let { MediaItems.forEpisode(it, show) }
             )
 
             UP_NEXT -> {
                 // The same list auto-advance will actually play: the resume
-                // target, then the unplayed episodes after it.
-                val target = playback.resumeTarget(show.id)
-                val after = playback.unplayedAfter(show.id, target?.orderIndex ?: -1, AUTO_LIST_LIMIT - 1)
+                // target, then the unplayed episodes after it in the show's
+                // listening direction.
+                val target = playback.resumeTarget(show.id, show.direction)
+                val from = target?.orderIndex
+                    ?: if (show.direction.isNewestFirst) Int.MAX_VALUE else -1
+                val after = playback.unplayedAfter(show.id, from, AUTO_LIST_LIMIT - 1, show.direction)
                 (listOfNotNull(target) + after).map { MediaItems.forEpisode(it, show) }
             }
 
@@ -147,7 +150,7 @@ class AutoLibraryCallback(
         val term = query.trim()
         if (term.isEmpty()) return emptyList()
         val show = shows.activeShow() ?: return emptyList()
-        return playback.search(show.id, term).first()
+        return playback.search(show.id, term, show.direction).first()
             .take(AUTO_LIST_LIMIT)
             .map { MediaItems.forEpisode(it, show) }
     }

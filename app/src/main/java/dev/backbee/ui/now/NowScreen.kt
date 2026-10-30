@@ -170,7 +170,11 @@ private fun SpineNow(
 
         Row(verticalAlignment = Alignment.Top) {
             Text(
-                text = (target?.episodeNumber ?: ((target?.orderIndex ?: 0) + 1)).toString(),
+                text = displayNumber(
+                    target,
+                    total = state.progress?.totalEpisodes ?: 0,
+                    newestFirst = state.show?.direction?.isNewestFirst == true,
+                ).toString(),
                 style = BackbeeType.displayMedium,
                 color = colors.textAccent,
             )
@@ -207,6 +211,7 @@ private fun SpineNow(
                 fraction = progress.percentByEpisodes / 100f,
                 yearMarks = state.yearMarks,
                 detourFraction = state.detourFraction,
+                fromRight = state.show?.direction?.isNewestFirst == true,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(Dimens.space2))
@@ -236,11 +241,13 @@ private fun SpineNow(
         }
         if (state.isDetour && confirmedDetour) {
             val leftOff = state.resumeTarget
+            val total = state.progress?.totalEpisodes ?: 0
+            val newestFirst = state.show?.direction?.isNewestFirst == true
             Spacer(Modifier.height(Dimens.space5))
             Readout(
                 lines = listOf(
                     "Playing out of sequence",
-                    "Your place is still ep ${leftOff?.episodeNumber ?: ((leftOff?.orderIndex ?: 0) + 1)}",
+                    "Your place is still ep ${displayNumber(leftOff, total, newestFirst)}",
                 ),
             )
             Spacer(Modifier.height(Dimens.space2))
@@ -338,8 +345,10 @@ private fun SpineNow(
         if (state.upNext.isNotEmpty()) {
             Label("Next up")
             Spacer(Modifier.height(Dimens.space2))
+            val total = state.progress?.totalEpisodes ?: 0
+            val newestFirst = state.show?.direction?.isNewestFirst == true
             state.upNext.forEach { row ->
-                UpNextRow(row) { player.playEpisode(row.id) }
+                UpNextRow(row, total, newestFirst) { player.playEpisode(row.id) }
                 Spacer(Modifier.height(Dimens.space2))
             }
         }
@@ -358,12 +367,18 @@ private fun SpineNow(
  * The book spine: a filled block for what has been read, ticks for year
  * boundaries, a hard marker at your place, and - only when the player has
  * wandered off somewhere else - a hollow one showing where it went.
+ *
+ * The axis stays chronological (oldest on the left) whichever way the show is
+ * listened. [fromRight] only mirrors the fill and your marker, so a newest-first
+ * listener starts at the right end and works leftwards, exactly as the queue
+ * does. Year ticks therefore need no mirroring.
  */
 @Composable
 private fun Spine(
     fraction: Float,
     yearMarks: List<Pair<Int, Float>>,
     detourFraction: Float? = null,
+    fromRight: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val colors = backbeeColors
@@ -377,7 +392,8 @@ private fun Spine(
 
                 .drawBehind {
                     val read = size.width * fraction.coerceIn(0f, 1f)
-                    drawRect(colors.accentPrimary, Offset.Zero, Size(read, size.height))
+                    val readStart = if (fromRight) size.width - read else 0f
+                    drawRect(colors.accentPrimary, Offset(readStart, 0f), Size(read, size.height))
                     yearMarks.forEach { (_, at) ->
                         val x = size.width * at.coerceIn(0f, 1f)
                         drawRect(colors.borderColor, Offset(x, 0f), Size(1.5f, size.height))
@@ -389,7 +405,8 @@ private fun Spine(
                         drawRect(colors.textMuted, Offset(x - 1f, 0f), Size(2f, size.height))
                     }
                     // Your place itself, heavier than the year ticks.
-                    drawRect(colors.textPrimary, Offset(read - 2f, 0f), Size(4f, size.height))
+                    val markerX = if (fromRight) size.width - read else read
+                    drawRect(colors.textPrimary, Offset(markerX - 2f, 0f), Size(4f, size.height))
                 },
         )
         if (yearMarks.size > 1) {
@@ -415,7 +432,12 @@ private fun TransportKey(label: String, modifier: Modifier = Modifier, onClick: 
 }
 
 @Composable
-private fun UpNextRow(row: EpisodeRow, onClick: () -> Unit) {
+private fun UpNextRow(
+    row: EpisodeRow,
+    totalEpisodes: Int,
+    newestFirst: Boolean,
+    onClick: () -> Unit,
+) {
     val colors = backbeeColors
     CarbonPanel(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).heightIn(min = 48.dp),
@@ -424,7 +446,7 @@ private fun UpNextRow(row: EpisodeRow, onClick: () -> Unit) {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = (row.episodeNumber ?: (row.orderIndex + 1)).toString(),
+                text = displayNumber(row, totalEpisodes, newestFirst).toString(),
                 style = BackbeeType.body,
                 color = colors.textAccent,
                 modifier = Modifier.padding(end = Dimens.space3),
@@ -454,3 +476,14 @@ private fun UpNextRow(row: EpisodeRow, onClick: () -> Unit) {
 
 private val NOW_DATE: DateTimeFormatter =
     DateTimeFormatter.ofPattern("d MMM yyyy", Locale.US).withZone(ZoneId.systemDefault())
+
+/**
+ * The publisher's episode number when the feed supplies one. Otherwise the
+ * position in the order this archive is being listened to, so a newest-first
+ * show's first episode says "1" rather than its index from the far end.
+ */
+private fun displayNumber(row: EpisodeRow?, total: Int, newestFirst: Boolean): Int {
+    val orderIndex = row?.orderIndex ?: 0
+    return row?.episodeNumber
+        ?: if (newestFirst && total > 0) (total - orderIndex).coerceAtLeast(1) else orderIndex + 1
+}

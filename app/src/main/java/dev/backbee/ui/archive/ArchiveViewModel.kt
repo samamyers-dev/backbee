@@ -27,9 +27,10 @@ data class ArchiveUiState(
     val query: String = "",
     val searching: Boolean = false,
     /**
-     * List position of the earliest unfinished episode, so the list can open
-     * there. Null while searching: the index would be into the filtered rows,
-     * and jumping to "the first unplayed search hit" is not the same place.
+     * List position of the first unfinished episode in listening order, so the
+     * list can open there. Null while searching: the index would be into the
+     * filtered rows, and jumping to "the first unplayed search hit" is not the
+     * same place.
      */
     val resumeIndex: Int? = null,
     val totalEpisodes: Int = 0,
@@ -53,15 +54,15 @@ class ArchiveViewModel(private val container: AppContainer) : ViewModel() {
     private val activeShow = container.showRepository.observeActiveShow()
 
     private val allRows = activeShow.flatMapLatest { show ->
-        if (show == null) flowOf(emptyList()) else playback.observeArchive(show.id)
+        if (show == null) flowOf(emptyList()) else playback.observeArchive(show.id, show.direction)
     }
 
     private val visibleRows = combine(activeShow, _query) { show, q -> show to q }
         .flatMapLatest { (show, q) ->
             when {
                 show == null -> flowOf(emptyList())
-                q.isBlank() -> playback.observeArchive(show.id)
-                else -> playback.search(show.id, q.trim())
+                q.isBlank() -> playback.observeArchive(show.id, show.direction)
+                else -> playback.search(show.id, q.trim(), show.direction)
             }
         }
 
@@ -124,15 +125,17 @@ class ArchiveViewModel(private val container: AppContainer) : ViewModel() {
     private fun yearBands(rows: List<EpisodeRow>): Map<Long, String> {
         val bands = mutableMapOf<Long, String>()
         var last = Int.MIN_VALUE
-        rows.forEachIndexed { index, row ->
-            val year = yearOf(row.pubDate ?: return@forEachIndexed)
+        rows.forEach { row ->
+            val year = yearOf(row.pubDate ?: return@forEach)
             if (year != last) {
-                val firstNumber = row.episodeNumber ?: (row.orderIndex + 1)
-                val lastOfYear = rows.drop(index).lastOrNull {
+                // Min/max rather than first/last: the list runs newest-first for
+                // half the shows, and "EPISODES 286-231" reads backwards.
+                val numbers = rows.filter {
                     it.pubDate != null && yearOf(it.pubDate) == year
+                }.map { it.episodeNumber ?: (it.orderIndex + 1) }
+                if (numbers.isNotEmpty()) {
+                    bands[row.id] = "$year · EPISODES ${numbers.min()}-${numbers.max()}"
                 }
-                val lastNumber = lastOfYear?.let { it.episodeNumber ?: (it.orderIndex + 1) } ?: firstNumber
-                bands[row.id] = "$year · EPISODES $firstNumber-$lastNumber"
                 last = year
             }
         }

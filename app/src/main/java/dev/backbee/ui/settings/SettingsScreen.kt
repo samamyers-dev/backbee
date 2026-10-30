@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.backbee.BuildConfig
 import dev.backbee.core.playback.ArchiveProgress
+import dev.backbee.core.playback.ListeningDirection
 import dev.backbee.core.playback.RelativeTime
 import dev.backbee.core.playback.ResumeTier
 import dev.backbee.core.playback.SmartResume
@@ -97,6 +98,19 @@ fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) 
                         { viewModel.setSkipIntro(show.skipIntroSeconds - 5) }, { viewModel.setSkipIntro(show.skipIntroSeconds + 5) })
                     Stepper("Skip outro", "${show.skipOutroSeconds}s",
                         { viewModel.setSkipOutro(show.skipOutroSeconds - 5) }, { viewModel.setSkipOutro(show.skipOutroSeconds + 5) })
+                    Spacer(Modifier.height(Dimens.space3))
+                    Text("Listening direction", style = BackbeeType.bodySmall, color = colors.textPrimary)
+                    Text(
+                        "Which end of the archive Resume starts from. Switching keeps every " +
+                            "position and played flag where they are.",
+                        style = BackbeeType.labelSmall,
+                        color = colors.textMuted,
+                        modifier = Modifier.padding(vertical = Dimens.space2),
+                    )
+                    DirectionSelector(
+                        selected = show.direction,
+                        onSelect = viewModel::setDirection,
+                    )
                 }
             }
         }
@@ -375,6 +389,48 @@ private fun StepKey(symbol: String, actionLabel: String, onClick: () -> Unit) {
             .semantics(mergeDescendants = true) { contentDescription = actionLabel },
     ) {
         Label(symbol, style = BackbeeType.body)
+    }
+}
+
+@Composable
+private fun DirectionSelector(
+    selected: ListeningDirection,
+    onSelect: (ListeningDirection) -> Unit,
+) {
+    val colors = backbeeColors
+    Row(
+        modifier = Modifier.fillMaxWidth().selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.space2),
+    ) {
+        ListeningDirection.entries.forEach { direction ->
+            val isSelected = direction == selected
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .defaultMinSize(minHeight = 48.dp)
+                    .background(if (isSelected) colors.layerSelected else colors.field)
+                    .drawBehind {
+                        if (isSelected) drawRect(colors.interactive, size = Size(4.dp.toPx(), size.height))
+                    }
+                    .selectable(
+                        selected = isSelected,
+                        role = Role.RadioButton,
+                        onClick = { onSelect(direction) },
+                    )
+                    .padding(horizontal = Dimens.space3, vertical = Dimens.space2),
+            ) {
+                Text(
+                    text = direction.label,
+                    style = BackbeeType.bodySmall,
+                    color = if (isSelected) colors.textAccentSelected else colors.textPrimary,
+                )
+                Text(
+                    text = if (direction.isNewestFirst) "Newest episode first" else "Oldest episode first",
+                    style = BackbeeType.labelSmall,
+                    color = colors.textMuted,
+                )
+            }
+        }
     }
 }
 
